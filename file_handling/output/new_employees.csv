@@ -1,0 +1,4 @@
+EmployeeID,FirstName,LastName,Department,Salary,HireDate,Status
+111,Kate,Anderson,Engineering,77000,2024-01-15,Active
+112,Liam,Martinez,Marketing,72000,2024-02-01,Active
+113,Mia,Thompson,Sales,69000,2024-02-15,Active

@@ -1,0 +1,14 @@
+[
+ {
+   "productId": 101,
+   "productName": "Wireless Mouse",
+   "price": 25.99,
+   "inStock": true
+ },
+ {
+   "productId": 102,
+   "productName": "Keyboard",
+   "price": 45.99,
+   "inStock": false
+ }
+]

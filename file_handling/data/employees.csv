@@ -1,0 +1,11 @@
+EmployeeID,FirstName,LastName,Department,Salary,HireDate,Status
+101,Alice,Johnson,Engineering,75000,2022-01-15,Active
+102,Bob,Smith,Marketing,68000,2021-06-20,Active
+103,Carol,White,Sales,72000,2023-03-10,Active
+104,David,Brown,Engineering,82000,2020-09-01,Active
+105,Eve,Davis,HR,65000,2022-11-05,Active
+106,Frank,Miller,Finance,78000,2021-08-12,Active
+107,Grace,Wilson,Marketing,71000,2023-01-20,Active
+108,Henry,Moore,Engineering,90000,2019-05-15,Active
+109,Ivy,Taylor,Sales,69000,2022-07-01,Inactive
+110,Jack,Anderson,IT,85000,2020-11-10,Active

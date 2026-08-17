@@ -1,0 +1,6 @@
+ID,Name,Email,Phone,City
+1,John Doe,john@example.com,,New York
+2,Jane Smith,,555-1234,Los Angeles
+3,Bob Johnson,bob@example.com,555-5678,
+4,Alice Brown,,,Chicago
+5,Charlie Davis,charlie@example.com,555-9012,Houston

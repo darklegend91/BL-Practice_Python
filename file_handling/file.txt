@@ -1,0 +1,1 @@
+In file handling, a file pointer represents the current position in a file. Python provides methods to manipulate the file pointer, allowing us to control where data is read from or written to within a file. Let’s see how file pointers work and how we can manipulate them:

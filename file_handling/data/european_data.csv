@@ -1,0 +1,6 @@
+Date;Product;Sales;Region;Currency
+2024-01-01;Laptop;150;North;USD
+2024-01-01;Smartphone;200;South;USD
+2024-01-02;Laptop;180;East;EUR
+2024-01-02;Tablet;75;West;EUR
+2024-01-03;Monitor;120;Central;USD

@@ -1,0 +1,6 @@
+Product ID,Name,Description,Price,Category,In Stock
+P001,Laptop Pro,"""15-inch display, 16GB RAM, 512GB SSD""",1299.99,Electronics,Yes
+P002,Smartphone X,"""6.7-inch, 5G, 256GB, dual camera""",899.5,Electronics,Yes
+P003,Gaming Mouse,"""RGB, wireless, 16000 DPI, 8 buttons""",79.99,Accessories,No
+P004,Study Desk,"""Wooden, 48 inches, with storage drawers""",299.0,Furniture,Yes
+P005,Python Book,"""Comprehensive guide, 3rd edition, 800 pages""",45.99,Books,Yes

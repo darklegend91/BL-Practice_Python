@@ -1,0 +1,4 @@
+EmployeeID,FirstName,LastName,Department,Salary,HireDate,Status
+201,Noah,Lee,Engineering,88000,2024-01-10,Active
+202,Emma,Clark,Finance,76000,2024-01-20,Active
+203,Oliver,Wright,IT,92000,2024-02-01,Active

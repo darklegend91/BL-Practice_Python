@@ -1,0 +1,3 @@
+ID|Name|Value
+1|Item A|100
+2|Item B|200
