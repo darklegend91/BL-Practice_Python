@@ -142,8 +142,8 @@ def partition(
 def binarySearch(num_list: list[int] , target : int):
     
     left = 0
-    right = len(num_list)
-    
+    right = len(num_list) - 1
+
     while left <= right:
         mid = left + (right - left) //2
     

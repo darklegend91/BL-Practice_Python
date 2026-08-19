@@ -5,9 +5,7 @@ from algorithms import (
     bubble_sort
 )
 
-def console_mission1():
-
-    score_list = [40, 30, 20, 10]
+def console_mission1(score_list):
 
     print("\n===== MISSION 1 =====")
     print("Original Scores:", score_list)
@@ -87,3 +85,10 @@ Enter Choice: """
 
     for score in sorted_array:
         print(score)
+
+    highest = sorted_array[0]
+    for score in sorted_array:
+        if score > highest:
+            highest = score
+
+    return highest

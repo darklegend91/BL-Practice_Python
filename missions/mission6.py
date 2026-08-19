@@ -187,10 +187,10 @@ def algorithm_performance(scores, list_ids, target, graph, start):
     }
     best_sort = min(sort_work, key=lambda name: sort_work[name])
 
-    _reflection_quiz(best_sort)
+    quiz(best_sort)
 
 
-def _reflection_quiz(best_sort : str):
+def quiz(best_sort : str):
 
     print("\n===== PERFORMANCE QUIZ =====")
 

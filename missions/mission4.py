@@ -1,8 +1,9 @@
+EXPLORATION_BONUS = 100
 
 def iterative_dfs(graph , start: str):
     if start not in graph:
         print(f"No location named {start} found in the kingdom")
-        return
+        return 0
 
     visited = set()
     order = []
@@ -22,3 +23,5 @@ def iterative_dfs(graph , start: str):
                 stack.append(nei_node)
 
     print(f"DFS Exploration:\n{(' -> '.join(order))}")
+
+    return EXPLORATION_BONUS
