@@ -1,9 +1,16 @@
 from collections import deque
 import time
 
-def bfs_shortest_path(graph , start:str , end: str):
-    start_time = time.time()
+def time_dec(base_fxn):
+    def enhanced_fxn(*args, **kwargs):
+        start_time = time.time()
+        base_fxn(*args, **kwargs)
+        end_time = time.time()
+        print(f"Time Taken to find the shortest path using {base_fxn.__name__}: {end_time - start_time:.6f}s")
+    return enhanced_fxn
 
+@time_dec
+def bfs_shortest_path(graph , start:str , end: str):
     visited = set()
     visited.add(start)
     parent : dict[str , str | None] = {start : None}
@@ -29,7 +36,7 @@ def bfs_shortest_path(graph , start:str , end: str):
 
     path = []
     node = end
-    while node != start:
+    while node != start: 
         path.append(node)
         next_node = parent[node]
         assert next_node is not None
@@ -37,14 +44,11 @@ def bfs_shortest_path(graph , start:str , end: str):
     path.append(start)
     path = path[::-1]
 
-    print(f"shortest Route:\n{(' -> '.join(path))}\nSteps: {len(path) -1}")
-    end_time = time.time()
-    print(f"Time Taken to find the shortest path using classis BFS: {end_time - start_time}s")  
+    print(f"shortest Route:\n{(' -> '.join(path))}\nSteps: {len(path) -1}") 
 
 
+@time_dec
 def bidirectional_bfs_shortest_path( graph , start: str , end: str):
-
-    start_time = time.time()
     if start == end:
         print(f"shortest Route:\n{start}\nSteps: 0")
         return
@@ -116,5 +120,3 @@ def bidirectional_bfs_shortest_path( graph , start: str , end: str):
     path = path_start + path_end
 
     print(f"shortest Route:\n{(' -> '.join(path))}\nSteps: {len(path) -1}")
-    end_time = time.time()
-    print(f"Time Taken to find the shortest path using classis BFS: {end_time - start_time}s")  

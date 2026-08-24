@@ -19,7 +19,17 @@ def main(game_state):
     'E': ['F' , 'G'],
     'F': [],
     'G': []
-}
+   }
+   
+   graph2 = {
+       "A": ["B", "C"],
+       "B": ["A", "D", "E"],
+       "C": ["A", "F"],
+       "D": ["B"],
+       "E": ["B", "G"],
+       "F": ["C", "G"],
+       "G": ["E", "F"]
+   }
 
    monsters = {
     'Goblin': {'health': 100, 'attack': 20, 'reward': 50},
@@ -45,16 +55,30 @@ def main(game_state):
 
    if mission_choice == 3:
       print("""
+Enter 1 to test on Graph 1 (directed)
+Enter 2 to test on Graph 2 (undirected)
+""")
+      graph_choice = int(input("Enter Choice: "))
+      if graph_choice == 1:
+         chosen_graph = graph
+      elif graph_choice == 2:
+         chosen_graph = graph2
+      else:
+         chosen_graph = None
+         print("Wrong Choice !! Choose Again")
+
+      if chosen_graph is not None:
+         print("""
 Enter 1 for Classic BFS
 Enter 2 for Bidirectional BFS
 """)
-      bfs_choice = int(input("Enter Choice: "))
-      if bfs_choice == 1:
-         bfs_shortest_path(graph , 'A' , 'G')
-      elif bfs_choice ==2:
-         bidirectional_bfs_shortest_path(graph , 'A' , 'G')
-      else:
-         print("Wrong Choice !! Choose Again")
+         bfs_choice = int(input("Enter Choice: "))
+         if bfs_choice == 1:
+            bfs_shortest_path(chosen_graph , 'A' , 'G')
+         elif bfs_choice ==2:
+            bidirectional_bfs_shortest_path(chosen_graph , 'A' , 'G')
+         else:
+            print("Wrong Choice !! Choose Again")
 
    if mission_choice == 4:
       game_state['exploration_bonus'] = iterative_dfs(graph , 'A')

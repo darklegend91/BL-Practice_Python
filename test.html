@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TePMA — India Opportunity Tracker</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#262b35; --ink:#e8eaed; --dim:#9aa3b2;
+    --hot:#ff6b4a; --warm:#f0b429; --cool:#4a9eff; --dead:#5c6472; --go:#3ddc97;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    padding:32px 20px 64px}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{color:var(--dim);font-size:14px;margin:0 0 8px}
+  .stamp{color:var(--dim);font-size:12.5px;margin:0 0 28px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);
+    margin:36px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--dead);
+    border-radius:8px;padding:16px 18px;margin-bottom:12px}
+  .card.hot{border-left-color:var(--hot)}
+  .card.warm{border-left-color:var(--warm)}
+  .card.cool{border-left-color:var(--cool)}
+  .card.go{border-left-color:var(--go)}
+  .top{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .name{font-weight:600;font-size:16px}
+  .name a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}
+  .name a:hover{border-bottom-color:var(--cool)}
+  .by{color:var(--dim);font-size:12.5px;font-weight:400}
+  .due{font-size:12.5px;font-weight:600;white-space:nowrap;padding:3px 9px;border-radius:20px;
+    background:#1f242e;color:var(--dim)}
+  .due.hot{background:rgba(255,107,74,.14);color:var(--hot)}
+  .due.warm{background:rgba(240,180,41,.14);color:var(--warm)}
+  .due.go{background:rgba(61,220,151,.13);color:var(--go)}
+  .money{color:var(--go);font-weight:600;font-size:13.5px;margin:8px 0 6px}
+  p{margin:7px 0;font-size:14px}
+  .why{color:var(--dim)}
+  .why b{color:var(--ink);font-weight:600}
+  .fit{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.05em;
+    padding:2px 8px;border-radius:4px;margin-right:8px;vertical-align:1px}
+  .f3{background:rgba(61,220,151,.16);color:var(--go)}
+  .f2{background:rgba(240,180,41,.16);color:var(--warm)}
+  .f1{background:rgba(154,163,178,.14);color:var(--dim)}
+  .note{background:#1b1f27;border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    margin:18px 0;font-size:13.5px;color:var(--dim)}
+  .note b{color:var(--ink)}
+  ul{margin:8px 0 0;padding-left:20px}
+  li{margin:5px 0;font-size:13.5px;color:var(--dim)}
+  li b{color:var(--ink);font-weight:600}
+  .dim-card{opacity:.62}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>TePMA — where to apply in India</h1>
+<p class="sub">Offline voice kiosk · Indian-language resume &amp; document generation · fully local inference</p>
+<p class="stamp">Compiled 19 August 2026 · deadlines verified against official / press sources · <span style="color:var(--go)">green = strong fit</span>, <span style="color:var(--warm)">amber = partial fit</span>, <span style="color:var(--dim)">grey = weak or closed</span></p>
+
+<div class="note">
+<b>Read this first.</b> Most Indian government grants below require <b>DPIIT Startup Recognition</b>, which in turn needs a registered Pvt Ltd / LLP / partnership. It is free, online, and usually issued in days. If TePMA is not yet incorporated, that single step is what unlocks SISFS, National Startup Awards, and most state schemes — do it before the September deadlines. The EiR-type programmes (GENESIS, TIDE) are the exception: they are built for individuals who have not incorporated yet.
+</div>
+
+<h2>Open right now — act this month</h2>
+
+<div class="card go">
+  <div class="top">
+    <div class="name"><a href="https://www.startupgrantsindia.com/genesis-eir-3-0-msh">MeitY GENESIS — Entrepreneur in Residence (EiR 3.0), Cohort 3</a><div class="by">MeitY Startup Hub, via empanelled incubators</div></div>
+    <div class="due go">Rolling · cohort closes ~31 Aug</div>
+  </div>
+  <div class="money">₹4–10 lakh equity-free, routed through your chosen incubator</div>
+  <p class="why"><span class="fit f3">BEST FIT</span> This is the closest thing to a programme designed for exactly your situation: <b>an individual with a working prototype and no company yet</b>. It is an ICT/AI scheme under MeitY, explicitly weighted toward Tier-II/III city impact — which is TePMA's whole argument. You apply through an MSH-empanelled incubator; pick one near you and apply to that incubator's call directly.</p>
+  <p class="why"><b>What to lead with:</b> the offline constraint. MeitY funds digital-inclusion infrastructure, and "works with no internet, no cloud, no data leaving the box" is a policy story, not just an engineering one.</p>
+</div>
+
+<div class="card go">
+  <div class="top">
+    <div class="name"><a href="https://nidhi-prayas.org/">NIDHI PRAYAS 2.0</a><div class="by">Department of Science &amp; Technology (DST), via PRAYAS Centres</div></div>
+    <div class="due go">Rolling — centre-by-centre calls</div>
+  </div>
+  <div class="money">Up to ₹20 lakh (PRAYAS Centre) · up to ₹40 lakh (Advance PRAYAS Centre, deep-tech)</div>
+  <p class="why"><span class="fit f3">STRONG</span> PRAYAS exists to take an idea to a <b>validated hardware prototype</b>. TePMA is a physical kiosk running local inference on Apple silicon — that is a prototype-to-product story, not a SaaS story, and it maps onto PRAYAS far better than onto software-only funds. The Advance track (₹40L) explicitly targets deep tech; on-device large-v3 ASR + a 4B/8B LLM with no cloud fallback qualifies.</p>
+  <p class="why"><b>Route:</b> apply as an innovator through a participating PRAYAS Centre — <a href="https://nidhi-prayas.org/prayascenters" style="color:var(--cool)">list here</a>. Contact: nidhiprayas@sineiitb.org</p>
+</div>
+
+<div class="card warm">
+  <div class="top">
+    <div class="name"><a href="https://sih.gov.in">Smart India Hackathon 2026</a><div class="by">Ministry of Education / AICTE — student track only</div></div>
+    <div class="due warm">Idea submission Aug–Sep · national cut-off ~30 Sep</div>
+  </div>
+  <div class="money">₹1,00,000 winner · plus ministry deployment &amp; internship pathways</div>
+  <p class="why"><span class="fit f2">IF YOU ARE A STUDENT</span> Only open to UG/PG students at recognised Indian institutions, in teams of 6 (at least one woman) with a faculty mentor, routed through your college's internal hackathon. If you qualify, the fit is unusually direct — ministry problem statements from MeitY, Skill Development and Rural Development regularly ask for precisely this: multilingual citizen-service kiosks for low-connectivity areas.</p>
+  <p class="why"><b>Value here is not the prize money</b> — it is that a winning SIH entry comes with a named ministry sponsor already interested in deployment.</p>
+</div>
+
+<div class="card warm">
+  <div class="top">
+    <div class="name"><a href="https://startuptalky.com/news/startup-stairs-announces-startup-league-2026-to-boost-indias-deeptech-ecosystem/">Startup League 2026</a><div class="by">Startup Stairs (DPIIT-recognised incubator)</div></div>
+    <div class="due warm">Applications open · ~15 Sep</div>
+  </div>
+  <div class="money">Up to ₹4 crore shared pool · investor-dependent, not a guaranteed grant</div>
+  <p class="why"><span class="fit f2">WORTH A SHOT</span> DeepTech-focused with AI as a named sector, open to early-stage founders and innovators rather than only funded companies. Three stages: idea screening, live demo to investors, then funding. A voice kiosk demos extremely well in a room — this format plays to TePMA's strength.</p>
+  <p class="why"><b>Caveat:</b> this is a private programme and the "₹4 crore" is a pool ceiling contingent on investor interest, not an allocation. Treat it as investor exposure, not funding you can plan around.</p>
+</div>
+
+<div class="card">
+  <div class="top">
+    <div class="name"><a href="https://www.venturecenter.co.in/funding/grants/csr-for-startups-and-entrepreneurs/ukgindiacsr2026">UKG India — Venture Center CSR Collaboration</a><div class="by">Venture Center, Pune</div></div>
+    <div class="due hot">Closes 25 Aug, 5:30 PM</div>
+  </div>
+  <div class="money">Up to ₹10 lakh equity-free</div>
+  <p class="why"><span class="fit f1">WEAK FIT — read before spending time</span> Scope is assistive tech for <b>healthcare and manufacturing frontline workers</b> specifically. You could argue TePMA serves frontline workers who need documents produced without literacy or typing, but you would be arguing uphill against applicants building for the stated use cases. It also requires committing to the project full-time with no concurrent commitments and becoming a Venture Center incubatee.</p>
+  <p class="why"><b>Only apply if</b> you are willing to reframe TePMA around frontline-worker documentation and can relocate/incubate at Pune. Six days out, that is a lot to ask.</p>
+</div>
+
+<h2>Rolling — no deadline, apply whenever you are ready</h2>
+
+<div class="card go">
+  <div class="top">
+    <div class="name"><a href="https://www.startupindia.gov.in/content/sih/en/government-schemes/startup-india-seed-fund.html">Startup India Seed Fund Scheme (SISFS)</a><div class="by">DPIIT — via ~200 approved incubators</div></div>
+    <div class="due go">Always open</div>
+  </div>
+  <div class="money">Up to ₹20 lakh grant (PoC/prototype) · up to ₹50 lakh convertible debt (market entry)</div>
+  <p class="why"><span class="fit f3">DO THIS ONCE INCORPORATED</span> The default first cheque for Indian startups. Requires DPIIT recognition and incorporation within the last 2 years. You apply to up to three incubators at once through a single portal. The ₹20L prototype grant is the right ask for TePMA's current stage.</p>
+</div>
+
+<div class="card go">
+  <div class="top">
+    <div class="name"><a href="https://bhashini.gov.in/sahyogi/startup">Bhashini — Sahyogi / startup partner registration</a><div class="by">Digital India BHASHINI Division, MeitY</div></div>
+    <div class="due go">Open registration</div>
+  </div>
+  <div class="money">Not a grant — ecosystem access, pilots, government deployment routes</div>
+  <p class="why"><span class="fit f3">STRATEGICALLY THE MOST IMPORTANT ENTRY ON THIS PAGE</span> Bhashini is the government's Indian-language AI mission, and TePMA is a Bhashini use case in everything but name: voice-first, English/Hindi/Punjabi, offline, aimed at citizens who cannot type. Register as a startup partner now, independent of any challenge cycle. Bhashini already routes partners into government deployments (it now powers GeM in 22 languages).</p>
+  <p class="why"><b>Do this regardless of everything else on this list.</b> It costs nothing and it puts you in the room for the next challenge round before it is announced publicly.</p>
+</div>
+
+<div class="card cool">
+  <div class="top">
+    <div class="name"><a href="https://msh.meity.gov.in/schemes/tide">MeitY TIDE 2.0</a><div class="by">MeitY Startup Hub, via empanelled incubators</div></div>
+    <div class="due">Rolling — per-incubator calls</div>
+  </div>
+  <div class="money">EiR ₹4 lakh (individuals/students) · Grant ₹7 lakh (startups with PoC)</div>
+  <p class="why"><span class="fit f2">GOOD BACKUP TO GENESIS</span> Same shape as GENESIS EiR, targeted at ICT startups in IoT/AI/blockchain/robotics. You have a PoC, so the ₹7L grant track applies. Different incubators run calls at different times — check several (VIT-TBI, Chitkara CIIF, KIIT, IIM Calcutta IIMCIP all run it).</p>
+</div>
+
+<div class="card cool">
+  <div class="top">
+    <div class="name"><a href="https://www.nvidia.com/en-in/startups/">NVIDIA Inception</a><div class="by">NVIDIA — free, no equity</div></div>
+    <div class="due">Always open</div>
+  </div>
+  <div class="money">Compute credits, hardware discounts, technical resources, investor intros</div>
+  <p class="why"><span class="fit f2">FREE — JUST DO IT</span> No equity, no cost, accepts pre-revenue and pre-incorporation ventures in many cases. Useful mainly for the credibility marker and hardware pricing. Low effort, non-zero return.</p>
+</div>
+
+<div class="card cool">
+  <div class="top">
+    <div class="name"><a href="https://emerginghimachal.hp.gov.in/startup/">State startup schemes — Himachal Pradesh CM Startup Scheme, Punjab, Karnataka Elevate</a><div class="by">State governments</div></div>
+    <div class="due">Varies by state</div>
+  </div>
+  <div class="money">Typically ₹1–50 lakh, plus sustenance allowance and incubation space</div>
+  <p class="why"><span class="fit f2">DEPENDS WHERE YOU ARE</span> State schemes are consistently less competitive than central ones and often provide monthly sustenance allowances during prototyping. Himachal's CM Startup Scheme in particular funds early-stage innovators with a monthly allowance. Tell me which state you are based in and I will pull the exact current call.</p>
+</div>
+
+<h2>Closed this cycle — but track these, they recur</h2>
+
+<div class="card dim-card">
+  <div class="top">
+    <div class="name"><a href="https://bhashini.gov.in/sahyogi/hackathon/open-handheld-ai">VYOMA Innovation Challenge</a><div class="by">Digital India BHASHINI Division + Current AI + Kalpa Impact</div></div>
+    <div class="due">Closed 5 Jul 2026</div>
+  </div>
+  <div class="money">Up to ₹80 lakh · plus deployment with central and state government departments</div>
+  <p class="why"><span class="fit f3">THIS WAS BUILT FOR TEPMA — YOU MISSED IT BY SIX WEEKS</span> The brief was, verbatim, open-source multilingual voice-first AI that operates in <b>offline and low-connectivity environments</b>. Open to independent innovators and students, not just companies. 20 shortlisted teams got developer kits, mentorship from Bhashini and Current AI, and a jury demo.</p>
+  <p class="why"><b>What to do anyway:</b> email the Bhashini team now with a TePMA demo video and ask to be notified about the next cohort or any follow-on. Programmes like this almost always run again, and arriving before the announcement with a working system is worth more than arriving on day one of the next round with a deck.</p>
+</div>
+
+<div class="card dim-card">
+  <div class="top">
+    <div class="name"><a href="https://indiaai.gov.in/hub/indiaai-application-development-initiative">IndiaAI Innovation Challenge</a><div class="by">IndiaAI Mission, MeitY</div></div>
+    <div class="due">Closed 22 Feb 2026</div>
+  </div>
+  <div class="money">Government work contract up to 2 years, max ₹1 crore</div>
+  <p class="why"><span class="fit f2">WATCH FOR NEXT ROUND</span> The 2026 edition was scoped to MSME governance and AYUSH public health, so TePMA would not have fit anyway. But the structure — pilot inside a government department, then scale, then contract — is the single best commercial path for a citizen-service kiosk. Themes change each round. Open to <b>Indian individuals including students</b>, not only companies.</p>
+</div>
+
+<div class="card dim-card">
+  <div class="top">
+    <div class="name"><a href="https://indiaai.gov.in/article/indiaai-startups-global-international-acceleration-programs-for-indian-ai-startups-2026-2nd-cohort">IndiaAI Startups Global (Station F, Paris)</a><div class="by">IndiaAI Mission</div></div>
+    <div class="due">Cohort 2 closed 28 Jun 2026</div>
+  </div>
+  <div class="money">₹5 lakh per startup · 3-month residency at Station F, Paris</div>
+  <p class="why"><span class="fit f1">FUTURE</span> Cohort 2 runs Sep–Dec 2026, so a third cohort call is likely in early 2027. Contact gm-startups@indiaai.gov.in to be added to notifications.</p>
+</div>
+
+<div class="card dim-card">
+  <div class="top">
+    <div class="name"><a href="https://www.startupindia.gov.in/content/sih/en/startup-awards.html">National Startup Awards</a><div class="by">DPIIT</div></div>
+    <div class="due">5.0 closed · watch for 6.0</div>
+  </div>
+  <div class="money">₹10 lakh cash + government showcase</div>
+  <p class="why"><span class="fit f2">NEEDS DPIIT RECOGNITION</span> Has categories for social impact and accessibility that TePMA fits cleanly. Requires DPIIT recognition number and CIN — another reason to incorporate.</p>
+</div>
+
+<h2>Not grants — where the kiosk actually goes</h2>
+
+<div class="note">
+Funding is the easier half. For a kiosk, the harder and more valuable question is who owns the floor space. These are the distribution channels worth approaching in parallel — a signed pilot with any one of them makes every grant application above dramatically stronger.
+<ul>
+<li><b>CSC (Common Services Centres)</b> — CSC e-Governance Services India Ltd operates a network of village-level kiosks already delivering citizen services, run by local Village Level Entrepreneurs. This is the single most natural home for TePMA. Approach as a service to be onboarded onto the CSC platform.</li>
+<li><b>National Career Service (NCS)</b> — Directorate General of Employment, Ministry of Labour. Model Career Centres already offer resume assistance to jobseekers, mostly manually. TePMA automates their existing job.</li>
+<li><b>NSDC / Skill India centres</b> — training centres whose graduates all need resumes at exactly the same moment.</li>
+<li><b>State employment exchanges and district libraries</b> — lower procurement bar than central government, good for a first paid pilot.</li>
+<li><b>Rojgar Melas / job fairs</b> — high-density, time-boxed demand; a strong venue for proving throughput numbers you can cite in applications.</li>
+</ul>
+</div>
+
+<h2>Suggested order of operations</h2>
+<div class="note">
+<ul>
+<li><b>This week</b> — register with Bhashini as a startup partner; email the VYOMA team a demo video. Both free, both compounding.</li>
+<li><b>This month</b> — apply to GENESIS EiR through a nearby MSH incubator, and to a PRAYAS Centre. These are the two that accept you as an individual with a prototype.</li>
+<li><b>If a student</b> — get on an SIH 2026 team before your college's internal deadline.</li>
+<li><b>Next 60 days</b> — incorporate and get DPIIT recognition. It gates SISFS, National Startup Awards, and most state schemes.</li>
+<li><b>In parallel, always</b> — chase one CSC or NCS pilot. Evidence of real users beats every deck.</li>
+</ul>
+</div>
+
+</div>
+</body>
+</html>
