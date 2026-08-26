@@ -1,0 +1,322 @@
+import asyncio
+import json
+import os
+import time
+from typing import Dict, List
+
+import httpx
+
+RTX_URLS = [
+    "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5090/",
+    "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5080/",
+    "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5060-family/",
+]
+
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 "
+        "(Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 "
+        "(KHTML, like Gecko) "
+        "Chrome/151.0 Safari/537.36"
+    )
+}
+
+
+async def async_fetch(
+    client: httpx.AsyncClient,
+    url: str
+) -> Dict:
+    """
+    Fetch one webpage asynchronously using httpx.AsyncClient.
+
+    Parameters
+    ----------
+    client : httpx.AsyncClient
+        Shared asynchronous HTTP client.
+
+    url : str
+        URL to fetch.
+
+    Returns
+    -------
+    dict
+        HTTP response information.
+    """
+
+    start_time = time.perf_counter()
+
+    try:
+
+        response = await client.get(url)
+
+        elapsed_time = time.perf_counter() - start_time
+
+
+        if response.status_code == 200:
+
+            return {
+                "url": url,
+                "status": "success",
+                "status_code": response.status_code,
+                "content": response.text,
+                "content_length": len(response.content),
+                "content_type": response.headers.get(
+                    "Content-Type"
+                ),
+                "elapsed_time": round(elapsed_time, 3),
+                "error": None,
+            }
+
+
+        if 400 <= response.status_code < 500:
+
+            return {
+                "url": url,
+                "status": "failed",
+                "status_code": response.status_code,
+                "content": None,
+                "content_length": 0,
+                "content_type": response.headers.get(
+                    "Content-Type"
+                ),
+                "elapsed_time": round(elapsed_time, 3),
+                "error": (
+                    f"Client error: HTTP "
+                    f"{response.status_code}"
+                ),
+            }
+
+
+        if 500 <= response.status_code < 600:
+
+            return {
+                "url": url,
+                "status": "failed",
+                "status_code": response.status_code,
+                "content": None,
+                "content_length": 0,
+                "content_type": response.headers.get(
+                    "Content-Type"
+                ),
+                "elapsed_time": round(elapsed_time, 3),
+                "error": (
+                    f"Server error: HTTP "
+                    f"{response.status_code}"
+                ),
+            }
+
+
+
+        return {
+            "url": url,
+            "status": "failed",
+            "status_code": response.status_code,
+            "content": None,
+            "content_length": 0,
+            "content_type": response.headers.get(
+                "Content-Type"
+            ),
+            "elapsed_time": round(elapsed_time, 3),
+            "error": (
+                f"Unexpected HTTP status: "
+                f"{response.status_code}"
+            ),
+        }
+
+
+    except httpx.TimeoutException:
+
+        elapsed_time = time.perf_counter() - start_time
+
+        return {
+            "url": url,
+            "status": "failed",
+            "status_code": None,
+            "content": None,
+            "content_length": 0,
+            "content_type": None,
+            "elapsed_time": round(elapsed_time, 3),
+            "error": "Request timed out",
+        }
+
+
+    except httpx.ConnectError:
+
+        elapsed_time = time.perf_counter() - start_time
+
+        return {
+            "url": url,
+            "status": "failed",
+            "status_code": None,
+            "content": None,
+            "content_length": 0,
+            "content_type": None,
+            "elapsed_time": round(elapsed_time, 3),
+            "error": "Connection failed",
+        }
+
+
+    except httpx.HTTPError as error:
+
+        elapsed_time = time.perf_counter() - start_time
+
+        return {
+            "url": url,
+            "status": "failed",
+            "status_code": None,
+            "content": None,
+            "content_length": 0,
+            "content_type": None,
+            "elapsed_time": round(elapsed_time, 3),
+            "error": str(error),
+        }
+
+
+async def async_fetch_many(
+    urls: List[str]
+) -> List[Dict]:
+
+    results = []
+
+    timeout = httpx.Timeout(10.0)
+
+    async with httpx.AsyncClient(
+        headers=HEADERS,
+        timeout=timeout,
+        follow_redirects=True
+    ) as client:
+
+        for index, url in enumerate(urls, start=1):
+
+            print(f"\nFetching {index}/{len(urls)}")
+            print(url)
+
+            result = await async_fetch(
+                client,
+                url
+            )
+
+            results.append(result)
+
+            print(
+                f"Status       : "
+                f"{result['status']}"
+            )
+
+            print(
+                f"HTTP Code    : "
+                f"{result['status_code']}"
+            )
+
+            print(
+                f"Time         : "
+                f"{result['elapsed_time']} sec"
+            )
+
+            if result["status"] == "success":
+
+                print(
+                    f"Content Size : "
+                    f"{result['content_length']} bytes"
+                )
+
+            else:
+
+                print(
+                    f"Error        : "
+                    f"{result['error']}"
+                )
+
+    return results
+
+
+
+def save_results_to_file(
+    results: List[Dict],
+    filename: str = "output/async_results.json"
+) -> None:
+
+    os.makedirs(
+        "output",
+        exist_ok=True
+    )
+
+    with open(
+        filename,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            results,
+            file,
+            indent=4,
+            ensure_ascii=False
+        )
+
+    print(
+        f"\nResults saved to: {filename}"
+    )
+
+
+
+async def main():
+
+    print("=" * 60)
+    print("ASYNCHRONOUS RTX HTTP CLIENT")
+    print("=" * 60)
+
+    start = time.perf_counter()
+
+    results = await async_fetch_many(
+        RTX_URLS
+    )
+
+    total_time = (
+        time.perf_counter() - start
+    )
+
+    successful = sum(
+        1
+        for result in results
+        if result["status"] == "success"
+    )
+
+    failed = (
+        len(results) - successful
+    )
+
+    print("\n" + "=" * 60)
+    print("SUMMARY")
+    print("=" * 60)
+
+    print(
+        f"URLs Processed : "
+        f"{len(results)}"
+    )
+
+    print(
+        f"Successful     : "
+        f"{successful}"
+    )
+
+    print(
+        f"Failed         : "
+        f"{failed}"
+    )
+
+    print(
+        f"Total Time     : "
+        f"{total_time:.3f} seconds"
+    )
+
+    save_results_to_file(
+        results
+    )
+
+
+if __name__ == "__main__":
+
+    asyncio.run(main())
