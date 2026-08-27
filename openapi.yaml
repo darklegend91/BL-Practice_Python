@@ -1,0 +1,316 @@
+openapi: 3.1.0
+
+info:
+  title: Async Web Intelligence Collector API
+  version: 1.0.0
+  description: >
+    OpenAPI contract for the Async Web Intelligence Collector.
+    The application collects GPU information from selected NVIDIA RTX
+    webpages using synchronous and asynchronous HTTP clients and Crawl4AI.
+    This specification defines the expected request and response formats.
+    It does not represent a FastAPI, Flask, or Django server implementation.
+
+paths:
+
+  /crawl:
+    post:
+      summary: Crawl selected URLs
+      description: >
+        Accepts one or more URLs and returns the collected web intelligence
+        results for those URLs.
+
+      requestBody:
+        required: true
+
+        content:
+          application/json:
+
+            schema:
+              $ref: "#/components/schemas/CrawlRequest"
+
+            example:
+              urls:
+                - "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5090/"
+                - "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5080/"
+                - "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5060-family/"
+
+      responses:
+
+        "200":
+          description: Crawl completed successfully
+
+          content:
+            application/json:
+
+              schema:
+                $ref: "#/components/schemas/CrawlResponse"
+
+        "400":
+          description: Invalid request
+
+          content:
+            application/json:
+
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
+  /health:
+    get:
+      summary: Check collector health
+      description: Returns the current health status of the collector.
+
+      responses:
+
+        "200":
+          description: Collector is healthy
+
+          content:
+            application/json:
+
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+              example:
+                status: healthy
+
+
+  /results:
+    get:
+      summary: Get collected results
+      description: >
+        Returns previously collected and normalized GPU intelligence results.
+
+      responses:
+
+        "200":
+          description: Results retrieved successfully
+
+          content:
+            application/json:
+
+              schema:
+                $ref: "#/components/schemas/ResultsResponse"
+
+
+components:
+
+  schemas:
+
+    CrawlRequest:
+      type: object
+
+      required:
+        - urls
+
+      properties:
+
+        urls:
+          type: array
+
+          minItems: 1
+
+          items:
+            type: string
+            format: uri
+
+          description: List of publicly accessible URLs to process.
+
+
+    GPUData:
+      type: object
+
+      properties:
+
+        type:
+          type: string
+          example: hardware
+
+        category:
+          type: string
+          example: GPU
+
+        manufacturer:
+          type: string
+          example: NVIDIA
+
+        model:
+          type:
+            - string
+            - "null"
+
+          example: GeForce RTX 5090
+
+        generation:
+          type:
+            - string
+            - "null"
+
+          example: RTX 50 Series
+
+        architecture:
+          type:
+            - string
+            - "null"
+
+          example: Blackwell
+
+        cuda_cores:
+          type:
+            - integer
+            - "null"
+
+          example: 21760
+
+        ai_tops:
+          type:
+            - number
+            - "null"
+
+          example: 3352
+
+        vram_gb:
+          type:
+            - integer
+            - "null"
+
+          example: 32
+
+        memory_type:
+          type:
+            - string
+            - "null"
+
+          example: GDDR7
+
+        base_clock_ghz:
+          type:
+            - number
+            - "null"
+
+          example: 2.01
+
+        boost_clock_ghz:
+          type:
+            - number
+            - "null"
+
+          example: 2.41
+
+        graphics_power_w:
+          type:
+            - integer
+            - "null"
+
+          example: 575
+
+        source_url:
+          type: string
+          format: uri
+
+
+    CrawlResult:
+      type: object
+
+      required:
+        - url
+        - status
+
+      properties:
+
+        url:
+          type: string
+          format: uri
+
+        status:
+          type: string
+
+          enum:
+            - success
+            - failed
+
+        data:
+          oneOf:
+            - $ref: "#/components/schemas/GPUData"
+            - type: "null"
+
+        error:
+          type:
+            - string
+            - "null"
+
+
+    CrawlResponse:
+      type: object
+
+      required:
+        - total_urls
+        - successful
+        - failed
+        - results
+
+      properties:
+
+        total_urls:
+          type: integer
+          example: 3
+
+        successful:
+          type: integer
+          example: 3
+
+        failed:
+          type: integer
+          example: 0
+
+        results:
+          type: array
+
+          items:
+            $ref: "#/components/schemas/CrawlResult"
+
+
+    HealthResponse:
+      type: object
+
+      required:
+        - status
+
+      properties:
+
+        status:
+          type: string
+          example: healthy
+
+
+    ResultsResponse:
+      type: object
+
+      required:
+        - count
+        - results
+
+      properties:
+
+        count:
+          type: integer
+          example: 3
+
+        results:
+          type: array
+
+          items:
+            $ref: "#/components/schemas/GPUData"
+
+
+    ErrorResponse:
+      type: object
+
+      required:
+        - error
+
+      properties:
+
+        error:
+          type: string
+          example: Invalid URL provided
