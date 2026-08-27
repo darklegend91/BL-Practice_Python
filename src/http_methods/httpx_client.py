@@ -12,6 +12,7 @@ RTX_URLS = [
     "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5060-family/",
 ]
 
+# testing urls added 
 ERROR_TEST_URLS = [
     # Success
     "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5090/",
@@ -28,6 +29,8 @@ ERROR_TEST_URLS = [
     # Connection failure
     "http://invalid-domain-123456789-example.com",
 ]
+MAX_RETRIES = 3
+RETRY_DELAY = 1
 
 # We can skip this part but some website behave differenctly towards the python based headers
 HEADERS = {
@@ -63,31 +66,97 @@ async def async_fetch(
     """
 
     start_time = time.perf_counter()
+    
+    for attempt in range(
+        1,
+        MAX_RETRIES+1
+    ):
 
-    try:
+        try:
 
-        response = await client.get(url)
+            response = await client.get(url)
 
-        elapsed_time = time.perf_counter() - start_time
-
-
-        if response.status_code == 200:
-
-            return {
-                "url": url,
-                "status": "success",
-                "status_code": response.status_code,
-                "content": response.text,
-                "content_length": len(response.content),
-                "content_type": response.headers.get(
-                    "Content-Type"
-                ),
-                "elapsed_time": round(elapsed_time, 3),
-                "error": None,
-            }
+            elapsed_time = time.perf_counter() - start_time
 
 
-        if 400 <= response.status_code < 500:
+            if response.status_code == 200:
+
+                return {
+                    "url": url,
+                    "status": "success",
+                    "status_code": response.status_code,
+                    "content": response.text,
+                    "content_length": len(response.content),
+                    "content_type": response.headers.get(
+                        "Content-Type"
+                    ),
+                    "elapsed_time": round(elapsed_time, 3),
+                    "error": None,
+                    "retry_count" : attempt -1
+                }
+
+
+            if 400 <= response.status_code < 500:
+
+                return {
+                    "url": url,
+                    "status": "failed",
+                    "status_code": response.status_code,
+                    "content": None,
+                    "content_length": 0,
+                    "content_type": response.headers.get(
+                        "Content-Type"
+                    ),
+                    "elapsed_time": round(elapsed_time, 3),
+                    "retry_count" : attempt -1,
+                    "error": (
+                        f"Client error: HTTP "
+                        f"{response.status_code}"
+                    ),
+                }
+
+
+            if 500 <= response.status_code < 600:
+
+                if attempt < MAX_RETRIES:
+
+                    print(
+                        f"Server error HTTP "
+                        f"{response.status_code}. Retrying..."
+                    )
+
+                    await asyncio.sleep(
+                        RETRY_DELAY
+                    )
+
+                    continue
+
+                elapsed_time = (
+                    time.perf_counter()
+                    - start_time
+                )
+
+                return {
+                    "url": url,
+                    "status": "failed",
+                    "status_code": response.status_code,
+                    "content": None,
+                    "content_length": 0,
+                    "content_type": response.headers.get(
+                        "Content-Type"
+                    ),
+                    "elapsed_time": round(
+                        elapsed_time,
+                        3
+                    ),
+                    "retry_count": attempt - 1,
+                    "error": (
+                        f"Server error: HTTP "
+                        f"{response.status_code}"
+                    ),
+                }
+
+
 
             return {
                 "url": url,
@@ -100,109 +169,115 @@ async def async_fetch(
                 ),
                 "elapsed_time": round(elapsed_time, 3),
                 "error": (
-                    f"Client error: HTTP "
+                    f"Unexpected HTTP status: "
                     f"{response.status_code}"
                 ),
             }
 
+        except (httpx.InvalidURL, httpx.UnsupportedProtocol) as error:
 
-        if 500 <= response.status_code < 600:
+            elapsed_time = time.perf_counter() - start_time
 
             return {
                 "url": url,
                 "status": "failed",
-                "status_code": response.status_code,
+                "status_code": None,
                 "content": None,
                 "content_length": 0,
-                "content_type": response.headers.get(
-                    "Content-Type"
-                ),
+                "content_type": None,
                 "elapsed_time": round(elapsed_time, 3),
+                "retry_count": attempt - 1,
+                "error": f"Invalid URL: {error}",
+            }
+
+        except httpx.TimeoutException:
+
+            if attempt < MAX_RETRIES:
+
+                print(
+                    "Request timed out. Retrying..."
+                )
+
+                await asyncio.sleep(
+                    RETRY_DELAY
+                )
+
+                continue
+
+            elapsed_time = (
+                time.perf_counter()
+                - start_time
+            )
+
+            return {
+                "url": url,
+                "status": "failed",
+                "status_code": None,
+                "content": None,
+                "content_length": 0,
+                "content_type": None,
+                "elapsed_time": round(
+                    elapsed_time,
+                    3
+                ),
+                "retry_count": attempt - 1,
+                "error": "Request timed out",
+            }
+    
+        except httpx.ConnectError as error:
+
+            if attempt < MAX_RETRIES:
+
+                print(
+                    "Connection failed. "
+                    "Retrying..."
+                )
+
+                await asyncio.sleep(
+                    RETRY_DELAY
+                )
+
+                continue
+
+            elapsed_time = (
+                time.perf_counter()
+                - start_time
+            )
+
+            return {
+                "url": url,
+                "status": "failed",
+                "status_code": None,
+                "content": None,
+                "content_length": 0,
+                "content_type": None,
+                "elapsed_time": round(
+                    elapsed_time,
+                    3
+                ),
+                "retry_count": attempt - 1,
                 "error": (
-                    f"Server error: HTTP "
-                    f"{response.status_code}"
+                    f"Connection failed: "
+                    f"{error}"
                 ),
             }
 
 
+        except httpx.HTTPError as error:
 
-        return {
-            "url": url,
-            "status": "failed",
-            "status_code": response.status_code,
-            "content": None,
-            "content_length": 0,
-            "content_type": response.headers.get(
-                "Content-Type"
-            ),
-            "elapsed_time": round(elapsed_time, 3),
-            "error": (
-                f"Unexpected HTTP status: "
-                f"{response.status_code}"
-            ),
-        }
+            elapsed_time = time.perf_counter() - start_time
 
-    except (httpx.InvalidURL, httpx.UnsupportedProtocol) as error:
-
-        elapsed_time = time.perf_counter() - start_time
-
-        return {
-            "url": url,
-            "status": "failed",
-            "status_code": None,
-            "content": None,
-            "content_length": 0,
-            "content_type": None,
-            "elapsed_time": round(elapsed_time, 3),
-            "error": f"Invalid URL: {error}",
-        }
-
-    except httpx.TimeoutException:
-
-        elapsed_time = time.perf_counter() - start_time
-
-        return {
-            "url": url,
-            "status": "failed",
-            "status_code": None,
-            "content": None,
-            "content_length": 0,
-            "content_type": None,
-            "elapsed_time": round(elapsed_time, 3),
-            "error": "Request timed out",
-        }
-
-
-    except httpx.ConnectError:
-
-        elapsed_time = time.perf_counter() - start_time
-
-        return {
-            "url": url,
-            "status": "failed",
-            "status_code": None,
-            "content": None,
-            "content_length": 0,
-            "content_type": None,
-            "elapsed_time": round(elapsed_time, 3),
-            "error": "Connection failed",
-        }
-
-
-    except httpx.HTTPError as error:
-
-        elapsed_time = time.perf_counter() - start_time
-
-        return {
-            "url": url,
-            "status": "failed",
-            "status_code": None,
-            "content": None,
-            "content_length": 0,
-            "content_type": None,
-            "elapsed_time": round(elapsed_time, 3),
-            "error": str(error),
-        }
+            return {
+                "url": url,
+                "status": "failed",
+                "status_code": None,
+                "content": None,
+                "content_length": 0,
+                "content_type": None,
+                "elapsed_time": round(elapsed_time, 3),
+                "retry_count": attempt - 1,
+                "error": str(error),
+            }
 
 # # This function use async io but still fetch data in sequential manner 
 # async def async_fetch_many(
@@ -333,6 +408,7 @@ async def async_fetch_many(
                 "content_length": 0,
                 "content_type": None,
                 "elapsed_time": 0,
+                "retry_count": 0,
                 "error": (
                     f"Unexpected error: {result}"
                 ),
@@ -444,6 +520,10 @@ async def main():
         time.perf_counter() - start
     )
 
+    # -----------------------------------------------------
+    # Count successful / failed requests
+    # -----------------------------------------------------
+
     successful = sum(
         1
         for result in results
@@ -462,24 +542,38 @@ async def main():
     print("RESULTS")
     print("=" * 60)
 
-    for index, result in enumerate(results, start=1):
+    for index, result in enumerate(
+        results,
+        start=1
+    ):
 
         print(f"\nResult {index}")
 
         print(
-            f"URL          : {result['url']}"
+            f"URL          : "
+            f"{result['url']}"
         )
 
         print(
-            f"Status       : {result['status']}"
+            f"Status       : "
+            f"{result['status']}"
         )
 
         print(
-            f"HTTP Code    : {result['status_code']}"
+            f"HTTP Code    : "
+            f"{result['status_code']}"
         )
 
         print(
-            f"Request Time : {result['elapsed_time']} sec"
+            f"Request Time : "
+            f"{result['elapsed_time']} sec"
+        )
+
+        # Retry count should be shown
+        # for EACH individual request
+        print(
+            f"Retries      : "
+            f"{result.get('retry_count', 0)}"
         )
 
         if result["status"] == "success":
@@ -496,9 +590,24 @@ async def main():
                 f"{result['error']}"
             )
 
-    # Sum of individual HTTP request durations
+    # -----------------------------------------------------
+    # Calculate timing information
+    # -----------------------------------------------------
+
     individual_time_sum = sum(
         result["elapsed_time"]
+        for result in results
+    )
+
+    # -----------------------------------------------------
+    # Calculate total number of retries
+    # -----------------------------------------------------
+
+    total_retries = sum(
+        result.get(
+            "retry_count",
+            0
+        )
         for result in results
     )
 
@@ -526,6 +635,11 @@ async def main():
     )
 
     print(
+        f"Total Retries        : "
+        f"{total_retries}"
+    )
+
+    print(
         f"Sum Individual Times : "
         f"{individual_time_sum:.3f} seconds"
     )
@@ -535,11 +649,19 @@ async def main():
         f"{total_time:.3f} seconds"
     )
 
+    # -----------------------------------------------------
+    # Save results
+    # -----------------------------------------------------
+
     save_results_to_file(
         results,
         "output/concurrent_results.json"
     )
 
+
+if __name__ == "__main__":
+    asyncio.run(main())
+    
 if __name__ == "__main__":
 
     asyncio.run(main())
