@@ -25,13 +25,21 @@ def normalize_integer(value):
     if value is None:
         return None
 
-    value = value.replace(
+    value = str(value).replace(
         ",",
         ""
     )
 
+    match = re.search(
+        r"[-+]?\d+",
+        value
+    )
+
+    if not match:
+        return None
+
     try:
-        return int(value)
+        return int(match.group())
 
     except ValueError:
         return None
@@ -42,9 +50,14 @@ def normalize_float(value):
     if value is None:
         return None
 
+    value = str(value).replace(
+        ",",
+        ""
+    )
+
     match = re.search(
         r"[\d.]+",
-        str(value)
+        value
     )
 
     if not match:

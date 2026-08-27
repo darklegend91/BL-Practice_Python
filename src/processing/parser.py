@@ -28,7 +28,12 @@ def split_gpu_pages(content: str) -> list[dict]:
 
     pages = []
 
-    sections = content.split("## Source")
+    # Crawl output uses both ``## Source`` and ``## Source :`` headings.
+    sections = re.split(
+        r"## Source\s*:?[ \t]*\r?\n",
+        content,
+        flags=re.IGNORECASE
+    )
 
     for section in sections[1:]:
 

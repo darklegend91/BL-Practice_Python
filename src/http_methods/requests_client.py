@@ -151,7 +151,7 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             "content": None,
             "content_length": 0,
             "content_type": None,
-            "elapsed_time": time.perf_counter() - start_time,
+            "total_time": round(time.perf_counter() - start_time, 3),
             "error": f"Invalid URL: {error}"
         }
 
@@ -165,7 +165,7 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             "content": None,
             "content_length": 0,
             "content_type": None,
-            "elapsed_time": time.perf_counter() - start_time,
+            "total_time": round(time.perf_counter() - start_time, 3),
             "error": "Request timed out"
         }
 
@@ -179,7 +179,7 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             "content": None,
             "content_length": 0,
             "content_type": None,
-            "elapsed_time": time.perf_counter() - start_time,
+            "total_time": round(time.perf_counter() - start_time, 3),
             "error": f"Connection failure: {error}"
         }
 
@@ -193,7 +193,7 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             "content": None,
             "content_length": 0,
             "content_type": None,
-            "elapsed_time": time.perf_counter() - start_time,
+            "total_time": round(time.perf_counter() - start_time, 3),
             "error": str(error)
         }
 

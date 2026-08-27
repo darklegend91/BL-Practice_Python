@@ -47,7 +47,7 @@ HEADERS = {
 async def async_fetch(
     client: httpx.AsyncClient,
     url: str
-) -> Dict:
+) -> Dict: # type:ignore
     """
     Fetch one webpage asynchronously using httpx.AsyncClient.
 
@@ -168,6 +168,7 @@ async def async_fetch(
                     "Content-Type"
                 ),
                 "elapsed_time": round(elapsed_time, 3),
+                "retry_count": attempt - 1,
                 "error": (
                     f"Unexpected HTTP status: "
                     f"{response.status_code}"
