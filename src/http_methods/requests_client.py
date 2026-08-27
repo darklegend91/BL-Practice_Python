@@ -6,9 +6,12 @@ import os
 
 import requests
 from requests.exceptions import (
-    ConnectionError,
-    RequestException,
     Timeout,
+    ConnectionError,
+    InvalidURL,
+    MissingSchema,
+    InvalidSchema,
+    RequestException,
 )
 
 
@@ -139,10 +142,35 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             ),
         }
 
+    except (InvalidURL, MissingSchema, InvalidSchema) as error:
+
+        return {
+            "url": url,
+            "status": "failed",
+            "status_code": None,
+            "content": None,
+            "content_length": 0,
+            "content_type": None,
+            "elapsed_time": time.perf_counter() - start_time,
+            "error": f"Invalid URL: {error}"
+        }
+
 
     except Timeout:
 
-        total_time = time.perf_counter() - start_time
+        return {
+            "url": url,
+            "status": "failed",
+            "status_code": None,
+            "content": None,
+            "content_length": 0,
+            "content_type": None,
+            "elapsed_time": time.perf_counter() - start_time,
+            "error": "Request timed out"
+        }
+
+
+    except ConnectionError as error:
 
         return {
             "url": url,
@@ -151,32 +179,13 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             "content": None,
             "content_length": 0,
             "content_type": None,
-            "total_time": round(total_time, 3),
-            "error": "Request timed out",
+            "elapsed_time": time.perf_counter() - start_time,
+            "error": f"Connection failure: {error}"
         }
-
-
-    except ConnectionError:
-
-        total_time = time.perf_counter() - start_time
-
-        return {
-            "url": url,
-            "status": "failed",
-            "status_code": None,
-            "content": None,
-            "content_length": 0,
-            "content_type": None,
-            "total_time": round(total_time, 3),
-            "error": "Connection failed",
-        }
-
 
 
     except RequestException as error:
 
-        total_time = time.perf_counter() - start_time
-
         return {
             "url": url,
             "status": "failed",
@@ -184,8 +193,8 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             "content": None,
             "content_length": 0,
             "content_type": None,
-            "total_time": round(total_time, 3),
-            "error": str(error),
+            "elapsed_time": time.perf_counter() - start_time,
+            "error": str(error)
         }
 
 

@@ -12,6 +12,23 @@ RTX_URLS = [
     "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5060-family/",
 ]
 
+ERROR_TEST_URLS = [
+    # Success
+    "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5090/",
+
+    # 404
+    "https://httpbin.org/status/404",
+
+    # 500
+    "https://httpbin.org/status/500",
+
+    # Invalid URL
+    "not-a-valid-url",
+
+    # Connection failure
+    "http://invalid-domain-123456789-example.com",
+]
+
 # We can skip this part but some website behave differenctly towards the python based headers
 HEADERS = {
     "User-Agent": (
@@ -125,6 +142,20 @@ async def async_fetch(
             ),
         }
 
+    except (httpx.InvalidURL, httpx.UnsupportedProtocol) as error:
+
+        elapsed_time = time.perf_counter() - start_time
+
+        return {
+            "url": url,
+            "status": "failed",
+            "status_code": None,
+            "content": None,
+            "content_length": 0,
+            "content_type": None,
+            "elapsed_time": round(elapsed_time, 3),
+            "error": f"Invalid URL: {error}",
+        }
 
     except httpx.TimeoutException:
 
@@ -232,31 +263,88 @@ async def async_fetch(
 #     return results
 
 # # This task make full use of concurrency by making tasks in this code
+# async def async_fetch_many(
+#     urls: List[str]
+# ) -> List[Dict]:
+    
+#     results = []
+    
+#     timeout = httpx.Timeout(10.0)
+    
+#     async with httpx.AsyncClient(
+#         headers= HEADERS,
+#         timeout= timeout,
+#         follow_redirects= True,
+#     ) as client:
+        
+#         print("\n Starting Concurrent requests ... \n")
+        
+#         tasks = [
+#             async_fetch(client , url)
+#             for url in urls
+#         ]
+        
+#         # results = await asyncio.gather(*tasks)
+        
+#         raw_results = await asyncio.gather( *tasks,  return_exceptions=True )        
+#     return results
+ #new update Async fetch many 
 async def async_fetch_many(
     urls: List[str]
 ) -> List[Dict]:
-    
-    results = []
-    
+
     timeout = httpx.Timeout(10.0)
-    
+
     async with httpx.AsyncClient(
-        headers= HEADERS,
-        timeout= timeout,
-        follow_redirects= True,
+        headers=HEADERS,
+        timeout=timeout,
+        follow_redirects=True,
     ) as client:
-        
-        print("\n Starting Concurrent requests ... \n")
-        
+
+        print(
+            "\nStarting Concurrent requests...\n"
+        )
+
         tasks = [
-            async_fetch(client , url)
+            async_fetch(client, url)
             for url in urls
         ]
-        
-        results = await asyncio.gather(*tasks)
-        
-    return results
-            
+
+        raw_results = await asyncio.gather(
+            *tasks,
+            return_exceptions=True
+        )
+
+    results = []
+
+    for url, result in zip(
+        urls,
+        raw_results
+    ):
+
+        # Unexpected exception which escaped async_fetch()
+        if isinstance(result, Exception):
+
+            results.append({
+                "url": url,
+                "status": "failed",
+                "status_code": None,
+                "content": None,
+                "content_length": 0,
+                "content_type": None,
+                "elapsed_time": 0,
+                "error": (
+                    f"Unexpected error: {result}"
+                ),
+            })
+
+        else:
+
+            results.append(
+                result
+            )
+
+    return results           
 
 def save_results_to_file(
     results: List[Dict],
@@ -349,6 +437,7 @@ async def main():
 
     results = await async_fetch_many(
         RTX_URLS
+        # ERROR_TEST_URLS
     )
 
     total_time = (
