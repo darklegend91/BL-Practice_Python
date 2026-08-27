@@ -69,7 +69,7 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
 
         total_time = time.perf_counter() - start_time
 
-        
+
 
         if response.status_code == 200:
             return {
@@ -187,8 +187,6 @@ def fetch_page(url: str, timeout: int = 10) -> Dict:
             "total_time": round(total_time, 3),
             "error": str(error),
         }
-
-
 
 
 def fetch_rtx_pages(urls: List[str]) -> List[Dict]:

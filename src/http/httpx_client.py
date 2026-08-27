@@ -12,7 +12,7 @@ RTX_URLS = [
     "https://www.nvidia.com/en-in/geforce/graphics-cards/50-series/rtx-5060-family/",
 ]
 
-
+# We can skip this part but some website behave differenctly towards the python based headers
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 "
@@ -173,65 +173,90 @@ async def async_fetch(
             "error": str(error),
         }
 
+# # This function use async io but still fetch data in sequential manner 
+# async def async_fetch_many(
+#     urls: List[str]
+# ) -> List[Dict]:
 
+#     results = []
+
+#     timeout = httpx.Timeout(10.0)
+
+#     async with httpx.AsyncClient(
+#         headers=HEADERS,
+#         timeout=timeout,
+#         follow_redirects=True
+#     ) as client:
+
+#         for index, url in enumerate(urls, start=1):
+
+#             print(f"\nFetching {index}/{len(urls)}")
+#             print(url)
+
+#             result = await async_fetch(
+#                 client,
+#                 url
+#             )
+
+#             results.append(result)
+
+#             print(
+#                 f"Status       : "
+#                 f"{result['status']}"
+#             )
+
+#             print(
+#                 f"HTTP Code    : "
+#                 f"{result['status_code']}"
+#             )
+
+#             print(
+#                 f"Time         : "
+#                 f"{result['elapsed_time']} sec"
+#             )
+
+#             if result["status"] == "success":
+
+#                 print(
+#                     f"Content Size : "
+#                     f"{result['content_length']} bytes"
+#                 )
+
+#             else:
+
+#                 print(
+#                     f"Error        : "
+#                     f"{result['error']}"
+#                 )
+
+#     return results
+
+# # This task make full use of concurrency by making tasks in this code
 async def async_fetch_many(
     urls: List[str]
 ) -> List[Dict]:
-
+    
     results = []
-
+    
     timeout = httpx.Timeout(10.0)
-
+    
     async with httpx.AsyncClient(
-        headers=HEADERS,
-        timeout=timeout,
-        follow_redirects=True
+        headers= HEADERS,
+        timeout= timeout,
+        follow_redirects= True,
     ) as client:
-
-        for index, url in enumerate(urls, start=1):
-
-            print(f"\nFetching {index}/{len(urls)}")
-            print(url)
-
-            result = await async_fetch(
-                client,
-                url
-            )
-
-            results.append(result)
-
-            print(
-                f"Status       : "
-                f"{result['status']}"
-            )
-
-            print(
-                f"HTTP Code    : "
-                f"{result['status_code']}"
-            )
-
-            print(
-                f"Time         : "
-                f"{result['elapsed_time']} sec"
-            )
-
-            if result["status"] == "success":
-
-                print(
-                    f"Content Size : "
-                    f"{result['content_length']} bytes"
-                )
-
-            else:
-
-                print(
-                    f"Error        : "
-                    f"{result['error']}"
-                )
-
+        
+        print("\n Starting Concurrent requests ... \n")
+        
+        tasks = [
+            async_fetch(client , url)
+            for url in urls
+        ]
+        
+        results = await asyncio.gather(*tasks)
+        
     return results
-
-
+            
 
 def save_results_to_file(
     results: List[Dict],
@@ -260,12 +285,64 @@ def save_results_to_file(
         f"\nResults saved to: {filename}"
     )
 
+# async def main():
 
+#     print("=" * 60)
+#     print("ASYNCHRONOUS RTX HTTP CLIENT")
+#     print("=" * 60)
+
+#     start = time.perf_counter()
+
+#     results = await async_fetch_many(
+#         RTX_URLS
+#     )
+
+#     total_time = (
+#         time.perf_counter() - start
+#     )
+
+#     successful = sum(
+#         1
+#         for result in results
+#         if result["status"] == "success"
+#     )
+
+#     failed = (
+#         len(results) - successful
+#     )
+
+#     print("\n" + "=" * 60)
+#     print("SUMMARY")
+#     print("=" * 60)
+
+#     print(
+#         f"URLs Processed : "
+#         f"{len(results)}"
+#     )
+
+#     print(
+#         f"Successful     : "
+#         f"{successful}"
+#     )
+
+#     print(
+#         f"Failed         : "
+#         f"{failed}"
+#     )
+
+#     print(
+#         f"Total Time     : "
+#         f"{total_time:.3f} seconds"
+#     )
+
+#     save_results_to_file(
+#         results
+#     )
 
 async def main():
 
     print("=" * 60)
-    print("ASYNCHRONOUS RTX HTTP CLIENT")
+    print("CONCURRENT RTX HTTP CLIENT")
     print("=" * 60)
 
     start = time.perf_counter()
@@ -288,34 +365,91 @@ async def main():
         len(results) - successful
     )
 
+    # -----------------------------------------------------
+    # Display individual results
+    # -----------------------------------------------------
+
     print("\n" + "=" * 60)
-    print("SUMMARY")
+    print("RESULTS")
+    print("=" * 60)
+
+    for index, result in enumerate(results, start=1):
+
+        print(f"\nResult {index}")
+
+        print(
+            f"URL          : {result['url']}"
+        )
+
+        print(
+            f"Status       : {result['status']}"
+        )
+
+        print(
+            f"HTTP Code    : {result['status_code']}"
+        )
+
+        print(
+            f"Request Time : {result['elapsed_time']} sec"
+        )
+
+        if result["status"] == "success":
+
+            print(
+                f"Content Size : "
+                f"{result['content_length']} bytes"
+            )
+
+        else:
+
+            print(
+                f"Error        : "
+                f"{result['error']}"
+            )
+
+    # Sum of individual HTTP request durations
+    individual_time_sum = sum(
+        result["elapsed_time"]
+        for result in results
+    )
+
+    # -----------------------------------------------------
+    # Summary
+    # -----------------------------------------------------
+
+    print("\n" + "=" * 60)
+    print("CONCURRENT EXECUTION SUMMARY")
     print("=" * 60)
 
     print(
-        f"URLs Processed : "
+        f"URLs Processed       : "
         f"{len(results)}"
     )
 
     print(
-        f"Successful     : "
+        f"Successful           : "
         f"{successful}"
     )
 
     print(
-        f"Failed         : "
+        f"Failed               : "
         f"{failed}"
     )
 
     print(
-        f"Total Time     : "
+        f"Sum Individual Times : "
+        f"{individual_time_sum:.3f} seconds"
+    )
+
+    print(
+        f"Actual Total Time    : "
         f"{total_time:.3f} seconds"
     )
 
     save_results_to_file(
-        results
+        results,
+        "output/concurrent_results.json"
     )
-
 
 if __name__ == "__main__":
 
