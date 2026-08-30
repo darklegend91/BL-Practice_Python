@@ -3,7 +3,6 @@ import json
 import os
 import time
 from typing import Dict, List
-
 import httpx
 
 RTX_URLS = [
