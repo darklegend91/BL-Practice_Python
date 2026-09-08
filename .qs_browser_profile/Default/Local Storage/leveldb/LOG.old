@@ -1,0 +1,22 @@
+2026/09/02-12:28:45.378 38ab7 Reusing MANIFEST /Users/adityapathania/Codes/bz/BL-Practice_Python/.qs_browser_profile/Default/Local Storage/leveldb/MANIFEST-000001
+2026/09/02-12:28:45.380 38ab7 Recovering log #11
+2026/09/02-12:28:45.381 38ab7 Level-0 table #14: started
+2026/09/02-12:28:45.384 38ab7 Level-0 table #14: 15827 bytes OK
+2026/09/02-12:28:45.387 38ab7 Delete type=0 #11
+2026/09/02-12:28:45.388 38abc Compacting 4@0 + 0@1 files
+2026/09/02-12:28:45.389 38abc Generated table #16@0: 269 keys, 19499 bytes
+2026/09/02-12:28:45.389 38abc Compacted 4@0 + 0@1 files => 19499 bytes
+2026/09/02-12:28:45.390 38abc compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/02-12:28:45.390 38abc Delete type=2 #14
+2026/09/02-12:28:45.390 38abc Delete type=2 #7
+2026/09/02-12:28:45.390 38abc Delete type=2 #12
+2026/09/02-12:28:45.390 38abc Delete type=2 #10
+2026/09/02-12:29:45.390 38abc Level-0 table #18: started
+2026/09/02-12:29:45.394 38abc Level-0 table #18: 14983 bytes OK
+2026/09/02-12:29:45.396 38abc Delete type=0 #15
+2026/09/02-12:30:45.707 38abc Level-0 table #20: started
+2026/09/02-12:30:45.713 38abc Level-0 table #20: 15820 bytes OK
+2026/09/02-12:30:45.718 38abc Delete type=0 #17
+2026/09/02-12:31:28.630 38abc Level-0 table #22: started
+2026/09/02-12:31:28.634 38abc Level-0 table #22: 14824 bytes OK
+2026/09/02-12:31:28.638 38abc Delete type=0 #19

@@ -1,0 +1,48 @@
+2026/09/02-15:28:13.340 3a0a9 Reusing MANIFEST /Users/adityapathania/Codes/bz/BL-Practice_Python/.qs_browser_profile/Default/IndexedDB/https_www.topuniversities.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/09/02-15:28:13.341 3a0a9 Recovering log #1881
+2026/09/02-15:28:13.342 3a0a9 Reusing old log /Users/adityapathania/Codes/bz/BL-Practice_Python/.qs_browser_profile/Default/IndexedDB/https_www.topuniversities.com_0.indexeddb.leveldb/001881.log 
+2026/09/02-15:28:13.342 3a0a9 Delete type=2 #1880
+2026/09/02-15:28:47.050 3a0ab Level-0 table #1886: started
+2026/09/02-15:28:47.052 3a0ab Level-0 table #1886: 64193 bytes OK
+2026/09/02-15:28:47.054 3a0ab Delete type=0 #1881
+2026/09/02-15:28:47.054 3a0a8 Manual compaction at level-0 from ' #\x03\x00\x00\x00' @ 72057594037927935 : 1 .. ' $\x03\x00\x00\x00' @ 0 : 0; will stop at ' #\x03\x00\x00\x05' @ 119621 : 1
+2026/09/02-15:28:47.054 3a0a8 Compacting 1@0 + 1@1 files
+2026/09/02-15:28:47.056 3a0a8 Generated table #1887@0: 780 keys, 8378 bytes
+2026/09/02-15:28:47.056 3a0a8 Compacted 1@0 + 1@1 files => 8378 bytes
+2026/09/02-15:28:47.058 3a0a8 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/02-15:28:47.058 3a0a8 Delete type=2 #1886
+2026/09/02-15:28:47.058 3a0a8 Manual compaction at level-0 from ' #\x03\x00\x00\x05' @ 119621 : 1 .. ' $\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/02-15:28:53.862 3a0ab Level-0 table #1889: started
+2026/09/02-15:28:53.863 3a0ab Level-0 table #1889: 5659 bytes OK
+2026/09/02-15:28:53.864 3a0ab Delete type=2 #1883
+2026/09/02-15:28:53.864 3a0ab Delete type=0 #1885
+2026/09/02-15:28:53.865 3a0a8 Manual compaction at level-0 from ' $\x03\x00\x00\x00' @ 72057594037927935 : 1 .. ' %\x03\x00\x00\x00' @ 0 : 0; will stop at ' $\x03\x00\x00\x05' @ 119855 : 1
+2026/09/02-15:28:53.865 3a0a8 Compacting 1@0 + 1@1 files
+2026/09/02-15:28:53.867 3a0a8 Generated table #1890@0: 824 keys, 8901 bytes
+2026/09/02-15:28:53.867 3a0a8 Compacted 1@0 + 1@1 files => 8901 bytes
+2026/09/02-15:28:53.868 3a0a8 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/02-15:28:53.868 3a0a8 Delete type=2 #1889
+2026/09/02-15:28:53.868 3a0b4 Manual compaction at level-0 from ' $\x03\x00\x00\x05' @ 119855 : 1 .. ' %\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/02-15:28:58.802 3a0ab Manual compaction at level-0 from ' %\x03\x00\x00\x00' @ 72057594037927935 : 1 .. ' &\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/02-15:29:05.422 3a0ab Level-0 table #1892: started
+2026/09/02-15:29:05.424 3a0ab Level-0 table #1892: 7145 bytes OK
+2026/09/02-15:29:05.427 3a0ab Delete type=0 #1888
+2026/09/02-15:29:05.427 3a0ab Delete type=2 #1887
+2026/09/02-15:29:05.428 3a0a9 Manual compaction at level-0 from ' &\x03\x00\x00\x00' @ 72057594037927935 : 1 .. ' '\x03\x00\x00\x00' @ 0 : 0; will stop at ' &\x03\x00\x00\x05' @ 120161 : 1
+2026/09/02-15:29:05.428 3a0a9 Compacting 1@0 + 1@1 files
+2026/09/02-15:29:05.430 3a0a9 Generated table #1893@0: 909 keys, 9322 bytes
+2026/09/02-15:29:05.430 3a0a9 Compacted 1@0 + 1@1 files => 9322 bytes
+2026/09/02-15:29:05.431 3a0a9 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/02-15:29:05.431 3a0a9 Delete type=2 #1892
+2026/09/02-15:29:05.431 3a0a9 Manual compaction at level-0 from ' &\x03\x00\x00\x05' @ 120161 : 1 .. ' '\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/02-15:29:10.702 3a0a9 Level-0 table #1895: started
+2026/09/02-15:29:10.703 3a0a9 Level-0 table #1895: 5661 bytes OK
+2026/09/02-15:29:10.704 3a0a9 Delete type=2 #1890
+2026/09/02-15:29:10.704 3a0a9 Delete type=0 #1891
+2026/09/02-15:29:10.705 3a0a9 Manual compaction at level-0 from ' '\x03\x00\x00\x00' @ 72057594037927935 : 1 .. ' (\x03\x00\x00\x00' @ 0 : 0; will stop at ' '\x03\x00\x00\x05' @ 120395 : 1
+2026/09/02-15:29:10.705 3a0a9 Compacting 1@0 + 1@1 files
+2026/09/02-15:29:10.707 3a0a9 Generated table #1896@0: 977 keys, 9946 bytes
+2026/09/02-15:29:10.707 3a0a9 Compacted 1@0 + 1@1 files => 9946 bytes
+2026/09/02-15:29:10.708 3a0a9 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/02-15:29:10.708 3a0a9 Delete type=2 #1895
+2026/09/02-15:29:10.708 3a0a9 Manual compaction at level-0 from ' '\x03\x00\x00\x05' @ 120395 : 1 .. ' (\x03\x00\x00\x00' @ 0 : 0; will stop at (end)
