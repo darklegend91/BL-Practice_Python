@@ -105,3 +105,10 @@ select
     COUNT(*) FILTER (WHERE current_delay_days < 0 ) AS negative_current_delay,
     COUNT(*) FILTER (WHERE freight_cost_usd  < 0) AS negative_freight_cost
 from shipment_raw;
+
+
+
+
+
+-- SQL Queries for Data Quality Report
+
