@@ -1,0 +1,62 @@
+# Local development composition: API, crawler worker, scheduler and PostgreSQL.
+# Production uses the same image with independent processes, TLS termination,
+# persistent storage and protected backups (guide section 12).
+
+services:
+  database:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: llmfit
+      POSTGRES_USER: llmfit_migrate
+      POSTGRES_PASSWORD: llmfit_migrate
+    ports: ["5432:5432"]
+    volumes:
+      - database-data:/var/lib/postgresql/data
+      - ./scripts/init-roles.sql:/docker-entrypoint-initdb.d/10-init-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llmfit_migrate -d llmfit"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      LLMFIT_MIGRATION_DATABASE_URL: postgresql+psycopg://llmfit_migrate:llmfit_migrate@database:5432/llmfit
+    depends_on:
+      database:
+        condition: service_healthy
+
+  api:
+    build: .
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      LLMFIT_DATABASE_URL: postgresql+psycopg://llmfit_app:llmfit_app@database:5432/llmfit
+    ports: ["8000:8000"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  crawler:
+    build: .
+    # A separate process, so browser work can never block a user request.
+    command: ["python", "-m", "app.workers.crawler"]
+    environment:
+      LLMFIT_DATABASE_URL: postgresql+psycopg://llmfit_app:llmfit_app@database:5432/llmfit
+      LLMFIT_CRAWL_BACKEND: fixture
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    build: .
+    command: ["python", "-m", "app.workers.scheduler"]
+    environment:
+      LLMFIT_DATABASE_URL: postgresql+psycopg://llmfit_app:llmfit_app@database:5432/llmfit
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  database-data:
