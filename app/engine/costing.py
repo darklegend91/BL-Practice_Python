@@ -1,207 +1,134 @@
-"""Cash and optional time cost (guide section 6, "Cost calculation").
+"""What each option costs, month by month.
 
-All money is ``Decimal``. Existing hardware costs nothing in the incremental
-cash view; an annual commitment is never silently prorated; a missing price or
-tariff is unknown rather than zero.
+Every amount is a ``Decimal``. Hardware you already own costs nothing new. An
+annual plan is charged in full when it renews, not spread thinly across a
+shorter comparison. A missing price is an error the caller handles, never a
+zero.
 """
 
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_HALF_EVEN
-from uuid import UUID
+from decimal import ROUND_HALF_EVEN, Decimal
 
-from app.engine.candidates import Candidate
 from app.engine.policy import Policy
-from app.schemas.catalog import CatalogSnapshot
-from app.schemas.common import BillingInterval, DeploymentKind, Money, StrictModel
-from app.schemas.result import CostBreakdown, MonthlyCost
-from app.schemas.scenario import ExpandedScenario
+from app.schemas import BillingInterval, Cost, Deployment, Month, RecommendInput
 
-CENTS = Decimal("0.0001")
+PLACES = Decimal("0.0001")
 
 
-class Assumptions(StrictModel):
-    """One sensitivity case. ``base`` uses the user's own values unchanged."""
+class Assumptions:
+    """One of the three runs: low, base or high."""
 
-    case_id: str = "base"
-    description: str = "User-supplied values"
-    usage_factor: Decimal = Decimal("1")
-    power_factor: Decimal = Decimal("1")
-
-
-BASE_CASE = Assumptions()
+    def __init__(self, case: str, description: str, usage: Decimal, power: Decimal) -> None:
+        self.case = case
+        self.description = description
+        self.usage = usage
+        self.power = power
 
 
-def cases(policy: Policy) -> list[Assumptions]:
+BASE = Assumptions("base", "The numbers you gave", Decimal(1), Decimal(1))
+
+
+def three_cases(policy: Policy) -> list[Assumptions]:
     return [
-        Assumptions(
-            case_id="low",
-            description="Lower usage and lower whole-system power",
-            usage_factor=policy.low_case_usage_factor,
-            power_factor=policy.low_case_power_factor,
-        ),
-        BASE_CASE,
-        Assumptions(
-            case_id="high",
-            description="Higher usage and higher whole-system power",
-            usage_factor=policy.high_case_usage_factor,
-            power_factor=policy.high_case_power_factor,
-        ),
+        Assumptions("low", "Less use and lower power draw", policy.low_usage, policy.low_power),
+        BASE,
+        Assumptions("high", "More use and higher power draw", policy.high_usage, policy.high_power),
     ]
 
 
-class PriceUnavailable(LookupError):
-    """Raised when a required price has no reviewed observation."""
+class NoPrice(LookupError):
+    """Something that has to be bought has no price in the chosen region."""
 
 
-def _round(amount: Decimal) -> Decimal:
-    return amount.quantize(CENTS, rounding=ROUND_HALF_EVEN)
+def money(value: Decimal) -> Decimal:
+    return value.quantize(PLACES, rounding=ROUND_HALF_EVEN)
 
 
-def _cheapest_offer(
-    snapshot: CatalogSnapshot, revision_id: UUID, region: str, currency: str
-) -> Money:
-    offers = [
-        offer
-        for offer in snapshot.offers_for(revision_id, region)
-        if offer.price.currency == currency
-    ]
-    if not offers:
-        raise PriceUnavailable(f"no reviewed {currency} price for revision {revision_id}")
-    return min((offer.price for offer in offers), key=lambda price: price.amount)
-
-
-# --------------------------------------------------------------------------- #
-# Energy
-# --------------------------------------------------------------------------- #
-
-
-def monthly_energy_kwh(
-    scenario: ExpandedScenario, candidate: Candidate, policy: Policy, case: Assumptions
+def electricity_kwh_per_month(
+    machine, request: RecommendInput, used, policy: Policy, case: Assumptions
 ) -> Decimal | None:
-    hardware = candidate.hardware
-    if hardware is None or hardware.active_watts is None or hardware.idle_watts is None:
+    """Whole-machine electricity, not just the graphics card's rating."""
+    if machine is None or machine.active_watts is None or machine.idle_watts is None:
         return None
-    operating = scenario.operating_time
-    active_hours = operating.active_hours_per_day * case.usage_factor
-    idle_hours = operating.idle_hours_per_day
-    total = active_hours + idle_hours
-    if total > Decimal(24):
-        # Scaled-up usage cannot invent a longer day; idle time gives way first.
-        idle_hours = max(Decimal(0), Decimal(24) - active_hours)
-        active_hours = min(active_hours, Decimal(24))
-    watt_hours_per_day = (
-        hardware.active_watts * case.power_factor * active_hours
-        + hardware.idle_watts * case.power_factor * idle_hours
+
+    active = used.active_hours_per_day * case.usage
+    idle = used.idle_hours_per_day
+    if active + idle > Decimal(24):
+        idle = max(Decimal(0), Decimal(24) - active)
+        active = min(active, Decimal(24))
+
+    watt_hours = (
+        machine.active_watts * case.power * active + machine.idle_watts * case.power * idle
     )
-    return policy.days_per_month * watt_hours_per_day / Decimal(1000)
+    return policy.days_per_month * watt_hours / Decimal(1000)
 
 
-# --------------------------------------------------------------------------- #
-# Recurring charges
-# --------------------------------------------------------------------------- #
-
-
-def _plan_charge_for_month(
-    candidate: Candidate, scenario: ExpandedScenario, month: int
-) -> Money:
-    """Charge billed in a given 1-based month of the horizon.
-
-    A twelve-month commitment is billed in full at its renewal month; it is not
-    spread across a shorter comparison window.
-    """
-    plan = candidate.plan
-    assert plan is not None
-    seats = max(scenario.source.seats, plan.minimum_seats)
-    per_event = plan.price.scaled(Decimal(seats))
+def _subscription_charge(plan, request: RecommendInput, month: int) -> Decimal:
+    """What the plan bills in this month of the comparison."""
+    if plan.price is None:
+        raise NoPrice(f"{plan.name} has no price")
+    seats = max(request.seats, plan.min_seats)
+    per_charge = plan.price * Decimal(seats)
     if plan.billing_interval is BillingInterval.MONTHLY:
-        return per_event
-    cycle = max(plan.commitment_months, 12)
-    return per_event if (month - 1) % cycle == 0 else Money.zero(plan.price.currency)
+        return per_charge
+    # Annual: charged in full at renewal, never prorated.
+    return per_charge if (month - 1) % 12 == 0 else Decimal(0)
 
 
-# --------------------------------------------------------------------------- #
-# Whole breakdown
-# --------------------------------------------------------------------------- #
-
-
-def setup_hours(candidate: Candidate, scenario: ExpandedScenario) -> Decimal:
-    baseline = Decimal("0")
-    if candidate.hardware is not None:
-        baseline += candidate.hardware.setup_hours
-    if candidate.model is not None:
-        baseline += candidate.model.baseline_setup_hours
-    if candidate.plan is not None:
-        baseline += candidate.plan.baseline_setup_hours
-    return _round(baseline * scenario.setup_effort_multiplier)
+def setup_hours(option_parts, used) -> Decimal:
+    total = sum((part.setup_hours for part in option_parts if part is not None), Decimal(0))
+    return money(total * used.setup_effort_multiplier)
 
 
 def build(
-    candidate: Candidate,
-    scenario: ExpandedScenario,
-    snapshot: CatalogSnapshot,
-    policy: Policy,
-    case: Assumptions = BASE_CASE,
-) -> CostBreakdown:
-    """Compute the month-by-month cash schedule for one candidate.
+    candidate, request: RecommendInput, used, policy: Policy, case: Assumptions = BASE
+) -> Cost:
+    """The full month-by-month schedule for one candidate."""
+    currency = request.currency
+    upfront = Decimal(0)
 
-    Raises ``PriceUnavailable`` when a required purchase has no reviewed price;
-    the caller turns that into a ``PRICE_MISSING`` finding rather than a zero.
-    """
-    currency = scenario.currency
-    months = scenario.months
+    for part in candidate.buys:
+        if part.price is None or part.currency != currency:
+            raise NoPrice(f"{part.name} has no {currency} price in {request.region}")
+        upfront += part.price
 
-    upfront = Money.zero(currency)
-    if candidate.hardware is not None:
-        for revision_id in candidate.hardware.purchased_revisions:
-            upfront = upfront + _cheapest_offer(
-                snapshot, revision_id, scenario.source.region, currency
-            )
-
-    tariff = scenario.source.electricity_tariff_per_kwh
-    energy_unknown = candidate.deployment is not DeploymentKind.HOSTED_SUBSCRIPTION and (
-        tariff is None
+    electricity_unknown = (
+        candidate.deployment is not Deployment.SUBSCRIPTION
+        and request.electricity_per_kwh is None
     )
 
-    schedule: list[MonthlyCost] = []
-    cumulative = Money(amount=_round(upfront.amount), currency=currency)
-    for month in range(1, months + 1):
-        if candidate.deployment is DeploymentKind.HOSTED_SUBSCRIPTION:
-            recurring = _plan_charge_for_month(candidate, scenario, month)
-            energy: Money | None = None
+    months: list[Month] = []
+    running = money(upfront)
+    for month in range(1, used.months + 1):
+        if candidate.deployment is Deployment.SUBSCRIPTION:
+            subscription = _subscription_charge(candidate.plan, request, month)
+            electricity = None
         else:
-            recurring = Money.zero(currency)
-            kwh = monthly_energy_kwh(scenario, candidate, policy, case)
-            if kwh is None or tariff is None:
-                energy = None
-            else:
-                energy = Money(amount=_round(kwh * tariff.amount), currency=currency)
+            subscription = Decimal(0)
+            kwh = electricity_kwh_per_month(candidate.machine, request, used, policy, case)
+            electricity = (
+                None
+                if kwh is None or request.electricity_per_kwh is None
+                else money(kwh * request.electricity_per_kwh)
+            )
 
-        month_total = recurring + (energy or Money.zero(currency))
-        cumulative = cumulative + month_total
-        schedule.append(
-            MonthlyCost(
+        this_month = subscription + (electricity or Decimal(0))
+        running += this_month
+        months.append(
+            Month(
                 month=month,
-                energy=energy,
-                recurring=Money(amount=_round(recurring.amount), currency=currency),
-                total=Money(amount=_round(month_total.amount), currency=currency),
-                cumulative=Money(amount=_round(cumulative.amount), currency=currency),
+                electricity=electricity,
+                subscription=money(subscription),
+                total=money(this_month),
+                running_total=money(running),
             )
         )
 
-    time_cost: Money | None = None
-    hourly = scenario.source.hourly_value
-    if hourly is not None and hourly.amount > 0:
-        hours = setup_hours(candidate, scenario) + (
-            scenario.source.maintenance_allowance_hours_per_month * Decimal(months)
-        )
-        time_cost = Money(amount=_round(hours * hourly.amount), currency=hourly.currency)
-
-    return CostBreakdown(
+    return Cost(
         currency=currency,
-        upfront=Money(amount=_round(upfront.amount), currency=currency),
-        monthly=schedule,
-        horizon_total=Money(amount=_round(cumulative.amount), currency=currency),
-        optional_time_cost=time_cost,
-        energy_unknown=energy_unknown,
+        upfront=money(upfront),
+        months=months,
+        total=money(running),
+        electricity_unknown=electricity_unknown,
     )

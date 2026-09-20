@@ -1,7 +1,5 @@
-# Pinned to the versions this release was verified against (guide section 12).
-# The browser paired with Crawl4AI is pinned separately in the collect extra.
+# Everything the app needs to run. Pinned to what it was tested against.
 alembic==1.20.0
-argon2-cffi==25.1.0
 fastapi==0.141.1
 psycopg[binary]==3.3.6
 pydantic==2.13.5

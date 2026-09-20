@@ -1,7 +1,9 @@
-"""Memory estimation for a local model configuration.
+"""How much memory a model actually needs to run.
 
-Parameter count alone does not establish required memory, and GPU VRAM is not
-interchangeable with system RAM (guide section 6).
+Three parts: the weights on disk, the cache that grows with how much text is in
+play, and a fixed allowance for the runtime. The parameter count on its own
+does not tell you this, and graphics memory is never interchangeable with
+system memory.
 """
 
 from __future__ import annotations
@@ -9,93 +11,63 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.engine.policy import Policy
-from app.schemas.catalog import ModelRevision
-from app.schemas.result import MemoryEstimate
+from app.schemas import MemoryNeeded, Model
 
-_GB = Decimal(1024) ** 3
+GB = Decimal(1024) ** 3
 
 
-def _kv_cache_gb_exact(
-    model: ModelRevision, context_tokens: int, concurrency: int
-) -> Decimal | None:
-    """Key/value cache size from published architecture details, if complete."""
-    arch = model.architecture
-    if not (arch.layers and arch.kv_heads and arch.head_dim):
+def _cache_gb(model: Model, tokens: int, sessions: int, policy: Policy) -> tuple[Decimal, bool] | None:
+    """Cache size, and whether it had to be estimated rather than calculated."""
+    if model.layers and model.kv_heads and model.head_dim:
+        exact = (
+            Decimal(2)                    # one key tensor and one value tensor
+            * Decimal(model.layers)
+            * Decimal(model.kv_heads)
+            * Decimal(model.head_dim)
+            * Decimal(tokens)
+            * Decimal(2)                  # two bytes per number
+            * Decimal(sessions)
+        ) / GB
+        return exact, False
+
+    if model.params_b is None:
         return None
-    bytes_total = (
-        Decimal(2)  # one key and one value tensor
-        * Decimal(arch.layers)
-        * Decimal(arch.kv_heads)
-        * Decimal(arch.head_dim)
-        * Decimal(context_tokens)
-        * Decimal(arch.kv_bytes_per_element)
-        * Decimal(concurrency)
+
+    rough = (
+        policy.cache_gb_per_1k_tokens_per_billion_params
+        * (Decimal(tokens) / Decimal(1000))
+        * model.params_b
+        * Decimal(sessions)
     )
-    return bytes_total / _GB
+    return rough, True
 
 
-def _kv_cache_gb_fallback(
-    model: ModelRevision, context_tokens: int, concurrency: int, policy: Policy
-) -> Decimal | None:
-    params = model.parameters_billion.value
-    if params is None:
-        return None
-    return (
-        policy.kv_cache_fallback_gb_per_1k_tokens_per_b_params
-        * (Decimal(context_tokens) / Decimal(1000))
-        * params
-        * Decimal(concurrency)
-    )
+def needed(
+    model: Model, tokens: int, sessions: int, policy: Policy
+) -> MemoryNeeded | None:
+    """Return the estimate, or ``None`` when the model's size is unknown.
 
-
-def estimate(
-    model: ModelRevision,
-    context_tokens: int,
-    concurrency: int,
-    policy: Policy,
-    *,
-    cpu_only: bool = False,
-) -> MemoryEstimate | None:
-    """Return the estimate, or ``None`` when weights are unknown.
-
-    Unknown weights produce no estimate at all rather than an invented number.
+    Unknown size gives no estimate at all, rather than a made-up number.
     """
-    weights = model.weights_gb.value
-    if weights is None:
+    if model.weights_gb is None:
         return None
 
-    exact = _kv_cache_gb_exact(model, context_tokens, concurrency)
-    if exact is not None:
-        kv_cache, approximate, method = exact, False, "published architecture"
-    else:
-        fallback = _kv_cache_gb_fallback(model, context_tokens, concurrency, policy)
-        if fallback is None:
-            return None
-        kv_cache, approximate, method = (
-            fallback,
-            True,
-            "parameter-count fallback (architecture details incomplete)",
-        )
+    cache = _cache_gb(model, tokens, sessions, policy)
+    if cache is None:
+        return None
+    cache_gb, approximate = cache
 
-    overhead = model.runtime_overhead_gb
-    working_set = weights + kv_cache + overhead
-    headroom = Decimal(1) + policy.gpu_memory_headroom_fraction
+    overhead = Decimal("1.0")
+    working = model.weights_gb + cache_gb + overhead
 
-    if cpu_only:
-        gpu_gb = Decimal(0)
-        system_gb = working_set * policy.system_ram_multiplier_for_cpu_inference
-        method += "; CPU-only execution"
-    else:
-        gpu_gb = working_set * headroom
-        system_gb = policy.system_ram_for_gpu_inference_gb
+    def round3(value: Decimal) -> Decimal:
+        return value.quantize(Decimal("0.001"))
 
-    quantize = lambda value: value.quantize(Decimal("0.001"))  # noqa: E731
-    return MemoryEstimate(
-        weights_gb=quantize(weights),
-        kv_cache_gb=quantize(kv_cache),
-        runtime_overhead_gb=quantize(overhead),
-        total_gpu_gb=quantize(gpu_gb),
-        total_system_ram_gb=quantize(system_gb),
+    return MemoryNeeded(
+        weights_gb=round3(model.weights_gb),
+        context_cache_gb=round3(cache_gb),
+        overhead_gb=round3(overhead),
+        gpu_total_gb=round3(working * (Decimal(1) + policy.gpu_headroom)),
+        system_ram_total_gb=round3(policy.system_ram_for_gpu_use_gb),
         approximate=approximate,
-        method=method,
     )

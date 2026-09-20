@@ -1,71 +1,181 @@
-"""The HTTP service entry point (guide sections 7 and 9).
+"""The whole API. No accounts, no tokens, no headers to remember.
 
-The API process serves requests only. Browser work runs in the separate crawler
-worker process so it can never block a user request.
+    GET  /options   what you are allowed to choose
+    POST /recommend send your choices, get an answer back
+    GET  /catalog   the data the answer was based on
+    GET  /pages     the pages the crawler stored
+    POST /crawl     fetch the sources again now
+    GET  /health    is the app up and is the database reachable
+
+``POST /recommend`` is the one that matters. Everything else exists so you can
+see what it is working from.
 """
 
 from __future__ import annotations
 
-import logging
-import uuid
+import asyncio
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
-from app import errors
-from app.api import ratelimit
-from app.api.v1 import admin, auth, catalog, health, questionnaire, recommendations, scenarios
-from app.config import get_settings
-from app.errors import CORRELATION_HEADER, error_response
+from app import catalog as catalog_loader, crawler
+from app.db import Page, Source, get_session
+from app.engine.recommend import recommend
+from app.options import all_options
+from app.schemas import Catalog, RecommendInput, Result, Strict
 from app.version import APP_VERSION
 
-log = logging.getLogger("llmfit.api")
+app = FastAPI(
+    title="LLM Fit Advisor",
+    version=APP_VERSION,
+    description=(
+        "Tells you whether to run a language model on your own computer or pay for "
+        "a subscription. Pick from options, get an answer with the reasoning shown. "
+        "No login. The app runs no model itself and calls no model API."
+    ),
+)
 
-DESCRIPTION = """
-Decides whether to run a downloadable language model on your own hardware or buy
-a hosted chat subscription, from structured inputs and a reviewed catalog.
 
-The service performs no model inference and calls no external model API.
-"""
+# --------------------------------------------------------------------------- #
+# Errors: one predictable shape
+# --------------------------------------------------------------------------- #
 
 
-def create_app() -> FastAPI:
-    settings = get_settings()
-    application = FastAPI(
-        title="LLM Fit Advisor",
-        version=APP_VERSION,
-        description=DESCRIPTION,
-        openapi_url="/openapi.json",
+def _problem(status_code: int, message: str, fields: list[dict] | None = None) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"error": message, "fields": fields or []},
     )
 
-    @application.middleware("http")
-    async def correlate_and_bound(request: Request, call_next):
-        request.state.correlation_id = (
-            request.headers.get(CORRELATION_HEADER) or str(uuid.uuid4())
+
+@app.exception_handler(RequestValidationError)
+async def _bad_request(request: Request, error: RequestValidationError):
+    return _problem(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        "Some of what you sent is not a valid choice. See 'fields', and GET /options "
+        "for the list of what is allowed.",
+        [
+            {
+                "field": ".".join(str(part) for part in item.get("loc", ()) if part != "body"),
+                "problem": item.get("msg", "invalid"),
+            }
+            for item in error.errors()
+        ],
+    )
+
+
+@app.exception_handler(ValidationError)
+async def _bad_value(request: Request, error: ValidationError):
+    return _problem(status.HTTP_422_UNPROCESSABLE_CONTENT, str(error))
+
+
+@app.exception_handler(crawler.CrawlError)
+async def _crawl_failed(request: Request, error: crawler.CrawlError):
+    return _problem(status.HTTP_502_BAD_GATEWAY, str(error))
+
+
+# --------------------------------------------------------------------------- #
+# Routes
+# --------------------------------------------------------------------------- #
+
+
+@app.get("/health", tags=["basics"])
+def health(session: Session = Depends(get_session)) -> dict:
+    try:
+        session.execute(text("SELECT 1"))
+    except Exception:
+        return {"status": "database unreachable", "version": APP_VERSION}
+    return {"status": "ok", "version": APP_VERSION}
+
+
+@app.get("/options", tags=["basics"])
+def options() -> dict:
+    """Every choice you can make, and the number each one turns into."""
+    return all_options()
+
+
+@app.post("/recommend", response_model=Result, tags=["the main one"])
+def make_recommendation(
+    answers: RecommendInput, session: Session = Depends(get_session)
+) -> Result:
+    """Send your answers, get the recommendation.
+
+    Nothing is stored and nothing is crawled while you wait. It reads the
+    catalog as it is right now and works the answer out.
+    """
+    available = catalog_loader.load(session, region=answers.region)
+    return recommend(answers, available)
+
+
+@app.get("/catalog", response_model=Catalog, tags=["see the data"])
+def show_catalog(
+    region: str | None = None, session: Session = Depends(get_session)
+) -> Catalog:
+    """The hardware, models and plans the recommendation is based on."""
+    return catalog_loader.load(session, region=region)
+
+
+class StoredPage(Strict):
+    url: str
+    fetched_at: str
+    changed_last_time: bool
+    rows_found: int
+    characters: int
+
+
+@app.get("/pages", response_model=list[StoredPage], tags=["see the data"])
+def show_pages(session: Session = Depends(get_session)) -> list[StoredPage]:
+    """What the crawler fetched, and how much of it it understood."""
+    return [
+        StoredPage(
+            url=row.url,
+            fetched_at=row.fetched_at.isoformat(),
+            changed_last_time=row.changed,
+            rows_found=row.rows_found,
+            characters=len(row.markdown),
         )
-        declared = request.headers.get("content-length")
-        if declared and declared.isdigit() and int(declared) > settings.max_request_bytes:
-            return error_response(
-                request,
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                code="request_too_large",
-                message=f"The request body exceeds {settings.max_request_bytes} bytes.",
-            )
-        response = await call_next(request)
-        response.headers[CORRELATION_HEADER] = request.state.correlation_id
-        return response
-
-    application.add_exception_handler(ratelimit.RateLimited, ratelimit.handler)
-    errors.install(application)
-
-    application.include_router(health.router)
-    application.include_router(auth.router)
-    application.include_router(questionnaire.router)
-    application.include_router(catalog.router)
-    application.include_router(scenarios.router)
-    application.include_router(recommendations.router)
-    application.include_router(admin.router)
-    return application
+        for row in session.scalars(select(Page).order_by(Page.url)).all()
+    ]
 
 
-app = create_app()
+class SourceIn(Strict):
+    url: str
+    label: str = ""
+
+
+@app.get("/sources", tags=["see the data"])
+def show_sources(session: Session = Depends(get_session)) -> list[dict]:
+    return [
+        {"url": row.url, "label": row.label, "enabled": row.enabled}
+        for row in session.scalars(select(Source).order_by(Source.url)).all()
+    ]
+
+
+@app.post("/sources", status_code=status.HTTP_201_CREATED, tags=["see the data"])
+def add_source(new: SourceIn, session: Session = Depends(get_session)) -> dict:
+    """Register a page for the crawler. It is fetched on the next /crawl."""
+    from app import netguard
+
+    try:
+        netguard.check_shape(new.url)
+    except netguard.Blocked as blocked:
+        return _problem(status.HTTP_422_UNPROCESSABLE_CONTENT, str(blocked))
+
+    session.add(Source(url=new.url, label=new.label))
+    session.flush()
+    return {"url": new.url, "label": new.label, "enabled": True}
+
+
+@app.post("/crawl", tags=["crawler"])
+def run_crawler(session: Session = Depends(get_session)) -> dict:
+    """Fetch every enabled source now and update the catalog from what comes back.
+
+    This runs while you wait, because there are only a handful of sources. It
+    returns exactly what it did with each one.
+    """
+    report = asyncio.run(crawler.crawl_all(session))
+    return report.as_dict()

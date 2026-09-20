@@ -1,311 +1,200 @@
-"""The pure recommendation function (guide section 6).
+"""The whole decision, as one function.
 
-``recommend`` performs no network calls, no database work and no browser work.
-Given the same expanded scenario, catalog snapshot and policy it always returns
-the same result.
+``recommend(request, catalog)`` touches no database and no network. Give it the
+same request and the same catalog and it returns the same answer every time,
+which is what makes it easy to test and easy to trust.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 from decimal import Decimal
-from uuid import UUID, uuid4
 
-from app.engine import breakeven, candidates as candidate_gen, costing, feasibility, ranking
-from app.engine.costing import Assumptions, PriceUnavailable
-from app.engine.feasibility import UNCERTAINTY_CODES
+from app.engine import breakeven, candidates as build_candidates, costing, feasibility, ranking, reasons
+from app.engine.costing import NoPrice
 from app.engine.policy import DEFAULT_POLICY, Policy
-from app.engine.reasons import Reason, render
-from app.schemas.catalog import CatalogSnapshot
-from app.schemas.common import (
-    Claimed,
-    DeploymentKind,
-    EvidenceQuality,
-    Money,
-    Priority,
-    ResultStatus,
-    utc_now,
+from app.options import expand
+from app.schemas import (
+    Case, Catalog, Deployment, Finding, Option, RecommendInput, Result, ResultStatus,
 )
-from app.schemas.result import (
-    CandidateResult,
-    Finding,
-    RecommendationResult,
-    SensitivityCase,
-)
-from app.schemas.scenario import ExpandedScenario
 
 
-def _evidence_quality(result: CandidateResult) -> EvidenceQuality:
-    codes = {finding.code for finding in result.findings}
-    if Reason.PRICE_MISSING in codes or Reason.CAPABILITY_UNKNOWN in codes:
-        return EvidenceQuality.INSUFFICIENT
-    stale = {Reason.PRICE_STALE, Reason.SPEC_STALE} & codes
-    partial = {
-        Reason.MEMORY_ESTIMATE_APPROXIMATE,
-        Reason.PERFORMANCE_UNKNOWN,
-        Reason.POWER_ASSUMED,
-        Reason.SUBSCRIPTION_LIMIT_UNKNOWN,
-        Reason.CONTEXT_SUPPORT_UNKNOWN,
-        Reason.COMMERCIAL_USE_UNVERIFIED,
-        Reason.LICENSE_UNVERIFIED,
-        Reason.ELECTRICITY_TARIFF_MISSING,
-    } & codes
-    if partial:
-        return EvidenceQuality.PARTIAL
-    if stale:
-        return EvidenceQuality.COMPLETE_BUT_STALE
-    return EvidenceQuality.COMPLETE_AND_FRESH
-
-
-def _assumption_notes(scenario: ExpandedScenario, policy: Policy) -> list[str]:
+def _assumption_notes(request: RecommendInput, used, policy: Policy) -> list[str]:
     notes = [
-        f"Presets applied: {scenario.applied_presets or 'none'} "
-        f"(preset version {scenario.preset_version}).",
-        f"Operating time: {scenario.operating_time.active_hours_per_day} h active and "
-        f"{scenario.operating_time.idle_hours_per_day} h idle per day.",
-        f"A month is {policy.days_per_month} days.",
-        "Whole-system power is used; a GPU board power limit is not a measured "
-        "whole-system figure.",
-        "GPU VRAM and system RAM are checked separately and never pooled.",
+        f"About {used.requests_per_day} requests a day and {used.context_tokens} "
+        f"tokens of context, from the options you chose.",
+        f"The machine is busy {used.active_hours_per_day} h and idle "
+        f"{used.idle_hours_per_day} h a day.",
+        f"A month counts as {policy.days_per_month} days.",
+        "Electricity is counted for the whole machine, not just the graphics card.",
+        "Graphics memory and system memory are checked separately, never added together.",
     ]
-    if scenario.source.inventory is not None:
+    if request.existing_computer is not None:
         notes.append(
-            "Existing equipment has zero new purchase cost in the cash comparison; "
-            "no resale or depreciation value is assumed."
+            "Hardware you already own costs nothing extra here. No resale value is "
+            "assumed either."
         )
-    if scenario.source.electricity_tariff_per_kwh is None:
-        notes.append("No electricity tariff was supplied, so operating cost is unknown.")
+    if request.electricity_per_kwh is None:
+        notes.append("No electricity price was given, so running cost is unknown.")
     return notes
 
 
-def _evaluate(
-    candidate,
-    scenario: ExpandedScenario,
-    snapshot: CatalogSnapshot,
-    policy: Policy,
-    as_of: dt.datetime,
-) -> CandidateResult:
-    assessment = feasibility.assess(candidate, scenario, snapshot, policy, as_of)
+def _evaluate(candidate, request: RecommendInput, used, policy: Policy) -> Option:
+    check = feasibility.check(candidate, request, used, policy)
 
     cost = None
-    if not assessment.blocked:
+    if not check.blocked:
         try:
-            cost = costing.build(candidate, scenario, snapshot, policy)
-        except PriceUnavailable:
-            assessment.add(
-                Reason.PRICE_MISSING,
-                blocking=True,
-                candidate=candidate.label,
-                region=scenario.source.region,
+            cost = costing.build(candidate, request, used, policy)
+        except NoPrice:
+            check.note(
+                reasons.NO_PRICE, blocking=True,
+                option=candidate.label, region=request.region,
             )
 
     if cost is not None:
-        _check_budgets(cost, scenario, assessment, candidate.label)
+        if request.budget_upfront is not None and cost.upfront > request.budget_upfront:
+            check.note(
+                reasons.OVER_UPFRONT_BUDGET, blocking=True,
+                cost=cost.upfront, budget=request.budget_upfront,
+            )
+        if request.budget_monthly is not None and cost.months:
+            worst = max(month.total for month in cost.months)
+            if worst > request.budget_monthly:
+                check.note(
+                    reasons.OVER_MONTHLY_BUDGET, blocking=True,
+                    cost=worst, budget=request.budget_monthly,
+                )
 
-    hours = costing.setup_hours(candidate, scenario)
-    if hours > scenario.max_acceptable_setup_hours:
-        assessment.add(
-            Reason.SETUP_EFFORT_EXCEEDED,
-            blocking=True,
-            setup_hours=hours,
-            allowance=scenario.max_acceptable_setup_hours,
-            setup_preference=scenario.source.setup_preference.value,
-        )
-    if hours > scenario.source.setup_allowance_hours:
-        assessment.add(
-            Reason.SETUP_EFFORT_EXCEEDED,
-            blocking=True,
-            setup_hours=hours,
-            allowance=scenario.source.setup_allowance_hours,
-            setup_preference=scenario.source.setup_preference.value,
+    parts = [candidate.machine, candidate.model, candidate.plan]
+    hours = costing.setup_hours(parts, used)
+    if hours > request.hours_for_setup:
+        check.note(
+            reasons.TOO_MUCH_SETUP, blocking=True,
+            hours=hours, allowed=request.hours_for_setup,
         )
 
-    result = CandidateResult(
-        candidate_id=candidate.candidate_id,
+    return Option(
+        id=candidate.id,
         label=candidate.label,
         deployment=candidate.deployment,
-        feasible=not assessment.blocked,
-        uncertain=assessment.uncertain,
-        cost=cost if not assessment.blocked else None,
-        memory=assessment.memory,
+        fits=not check.blocked,
+        uncertain=check.uncertain,
+        cost=cost if not check.blocked else None,
+        memory=check.memory,
         setup_hours=hours,
-        findings=assessment.findings,
-        evidence=assessment.evidence,
-        catalog_revision_ids=candidate.revision_ids,
+        findings=check.findings,
+        sources=candidate.sources,
     )
-    return result.model_copy(update={"evidence_quality": _evidence_quality(result)})
 
 
-def _check_budgets(cost, scenario: ExpandedScenario, assessment, label: str) -> None:
-    budget = scenario.source.budget
-    if budget.upfront is not None and cost.upfront.amount > budget.upfront.amount:
-        assessment.add(
-            Reason.BUDGET_UPFRONT_EXCEEDED,
-            blocking=True,
-            upfront=cost.upfront.amount,
-            budget=budget.upfront.amount,
-        )
-    if budget.monthly is not None and cost.monthly:
-        worst = max(month.total.amount for month in cost.monthly)
-        if worst > budget.monthly.amount:
-            assessment.add(
-                Reason.BUDGET_MONTHLY_EXCEEDED,
-                blocking=True,
-                monthly=worst,
-                budget=budget.monthly.amount,
-            )
+def _three_cases(pairs, request: RecommendInput, used, policy: Policy) -> tuple[list[Case], bool]:
+    """Re-cost everything that fits under low, base and high assumptions."""
+    cases: list[Case] = []
+    winners: list[str | None] = []
 
-
-def _sensitivity(
-    feasible,
-    scenario: ExpandedScenario,
-    snapshot: CatalogSnapshot,
-    policy: Policy,
-) -> tuple[list[SensitivityCase], bool]:
-    """Re-cost the feasible set under low/base/high assumptions."""
-    outcomes: list[SensitivityCase] = []
-    leaders: list[str | None] = []
-
-    for case in costing.cases(policy):
+    for assumptions in costing.three_cases(policy):
         best_id: str | None = None
-        best_total: Money | None = None
-        for candidate, result in feasible:
+        best_total: Decimal | None = None
+        for candidate, option in pairs:
             try:
-                cost = costing.build(candidate, scenario, snapshot, policy, case)
-            except PriceUnavailable:
+                cost = costing.build(candidate, request, used, policy, assumptions)
+            except NoPrice:
                 continue
-            if best_total is None or cost.horizon_total.amount < best_total.amount:
-                best_total, best_id = cost.horizon_total, result.candidate_id
-        outcomes.append(
-            SensitivityCase(
-                case_id=case.case_id,
-                description=case.description,
-                leading_candidate_id=best_id,
-                horizon_total=best_total,
-            )
-        )
-        leaders.append(best_id)
+            if best_total is None or cost.total < best_total:
+                best_total, best_id = cost.total, option.id
+        cases.append(Case(
+            case=assumptions.case,
+            description=assumptions.description,
+            winner=best_id,
+            total=best_total,
+        ))
+        winners.append(best_id)
 
-    sensitive = len({leader for leader in leaders if leader is not None}) > 1
-    return outcomes, sensitive
+    changes = len({winner for winner in winners if winner is not None}) > 1
+    return cases, changes
 
 
 def recommend(
-    scenario: ExpandedScenario,
-    snapshot: CatalogSnapshot,
+    request: RecommendInput,
+    catalog: Catalog,
     policy: Policy = DEFAULT_POLICY,
     *,
-    as_of: dt.datetime | None = None,
-    created_at: dt.datetime | None = None,
-) -> RecommendationResult:
-    """Evaluate one scenario against one immutable catalog snapshot."""
-    as_of = as_of or snapshot.taken_at
-    created_at = created_at or utc_now()
+    now: dt.datetime | None = None,
+) -> Result:
+    """Work out what this person should do."""
+    used = expand(request)
+    created = now or dt.datetime.now(dt.timezone.utc)
 
-    if snapshot.currency != scenario.currency:
-        return RecommendationResult(
-            policy_version=policy.version,
-            catalog_snapshot_id=snapshot.snapshot_id,
-            created_at=created_at,
-            status=ResultStatus.NEEDS_INPUT,
-            scenario=scenario,
-            missing_fields=["currency"],
-            findings=[
-                Finding(
-                    code=Reason.PRICE_MISSING,
-                    message=(
-                        f"The catalog snapshot is priced in {snapshot.currency} but the "
-                        f"scenario uses {scenario.currency}; a reviewed conversion is "
-                        "required."
-                    ),
-                    blocking=True,
-                )
-            ],
-            evidence_quality=EvidenceQuality.INSUFFICIENT,
+    if catalog.is_empty:
+        return Result(
+            status=ResultStatus.NOTHING_FITS,
+            inputs_used=used,
+            assumptions=_assumption_notes(request, used, policy),
+            notes=[Finding(
+                code=reasons.CATALOG_EMPTY,
+                message=reasons.say(reasons.CATALOG_EMPTY),
+                blocking=True,
+            )],
+            created_at=created,
         )
 
-    generated = candidate_gen.generate(scenario, snapshot, policy)
-    evaluated = [
-        (candidate, _evaluate(candidate, scenario, snapshot, policy, as_of))
-        for candidate in generated
+    pairs = [
+        (candidate, _evaluate(candidate, request, used, policy))
+        for candidate in build_candidates.build(request, catalog, policy)
     ]
 
-    feasible = [pair for pair in evaluated if pair[1].feasible and not pair[1].uncertain]
-    uncertain = [pair for pair in evaluated if pair[1].feasible and pair[1].uncertain]
-    ruled_out = [pair[1] for pair in evaluated if not pair[1].feasible]
+    solid = [pair for pair in pairs if pair[1].fits and not pair[1].uncertain]
+    shaky = [pair[1] for pair in pairs if pair[1].fits and pair[1].uncertain]
+    impossible = [pair[1] for pair in pairs if not pair[1].fits]
 
-    priority = scenario.source.priority
-    ranked = ranking.rank([pair[1] for pair in feasible], priority)
-    ranked_uncertain = ranking.rank([pair[1] for pair in uncertain], priority)
+    ordered = ranking.rank([option for _, option in solid], request.priority)
+    ordered_shaky = ranking.rank(shaky, request.priority)
 
-    sensitivity, sensitive = _sensitivity(feasible, scenario, snapshot, policy)
+    cases, changes = _three_cases(solid, request, used, policy)
 
-    findings: list[Finding] = []
-    if sensitive:
-        findings.append(
-            Finding(
-                code=Reason.RESULT_SENSITIVE_TO_ASSUMPTIONS,
-                message=render(Reason.RESULT_SENSITIVE_TO_ASSUMPTIONS),
-            )
-        )
+    notes: list[Finding] = []
+    if changes:
+        notes.append(Finding(
+            code=reasons.ANSWER_DEPENDS_ON_ASSUMPTIONS,
+            message=reasons.say(reasons.ANSWER_DEPENDS_ON_ASSUMPTIONS),
+        ))
 
-    break_evens = []
-    if ranked:
-        selected = ranked[0]
-        others = ranked[1:] + ranked_uncertain
-        for other in others[:10]:
-            if selected.cost and other.cost:
-                break_evens.append(
-                    breakeven.compare(
-                        selected.candidate_id,
-                        selected.cost,
-                        other.candidate_id,
-                        other.cost,
-                        scenario.months,
-                    )
+    comparisons = []
+    if ordered:
+        best = ordered[0]
+        for other in (ordered[1:] + ordered_shaky)[:10]:
+            if best.cost and other.cost:
+                comparisons.append(
+                    breakeven.compare(best.id, best.cost, other.id, other.cost, used.months)
                 )
-        if all(entry.crossover_month is None for entry in break_evens) and break_evens:
-            findings.append(
-                Finding(
-                    code=Reason.NO_BREAK_EVEN_IN_HORIZON,
-                    message=render(Reason.NO_BREAK_EVEN_IN_HORIZON, months=scenario.months),
-                )
-            )
+        if comparisons and all(entry.cheaper_from_month is None for entry in comparisons):
+            notes.append(Finding(
+                code=reasons.NEVER_PAYS_OFF,
+                message=reasons.say(reasons.NEVER_PAYS_OFF, months=used.months),
+            ))
 
-    if ranked:
+    if ordered:
         status = ResultStatus.RECOMMENDED
-        selected_result: CandidateResult | None = ranked[0]
-        alternatives = ranked[1:]
-    elif ranked_uncertain:
-        status = ResultStatus.INSUFFICIENT_EVIDENCE
-        selected_result = None
-        alternatives = []
+        best_option, rest = ordered[0], ordered[1:]
+    elif ordered_shaky:
+        status = ResultStatus.ONLY_UNCERTAIN_OPTIONS
+        best_option, rest = None, []
     else:
-        status = ResultStatus.NO_FEASIBLE_OPTION
-        selected_result = None
-        alternatives = []
+        status = ResultStatus.NOTHING_FITS
+        best_option, rest = None, []
 
-    quality = (
-        selected_result.evidence_quality
-        if selected_result is not None
-        else EvidenceQuality.INSUFFICIENT
-    )
-
-    return RecommendationResult(
-        policy_version=policy.version,
-        catalog_snapshot_id=snapshot.snapshot_id,
-        catalog_revision_ids=snapshot.revision_ids(),
-        created_at=created_at,
+    return Result(
         status=status,
-        scenario=scenario,
-        selected=selected_result,
-        alternatives=alternatives,
-        uncertain=ranked_uncertain,
-        ruled_out=ruled_out,
-        break_even=break_evens,
-        sensitivity=sensitivity,
-        sensitive_to_assumptions=sensitive,
-        assumptions=_assumption_notes(scenario, policy),
-        findings=findings,
-        evidence_quality=quality,
+        inputs_used=used,
+        best=best_option,
+        runners_up=rest,
+        uncertain=ordered_shaky,
+        ruled_out=impossible,
+        break_even=comparisons,
+        cases=cases,
+        answer_changes_with_assumptions=changes,
+        assumptions=_assumption_notes(request, used, policy),
+        notes=notes,
+        created_at=created,
     )

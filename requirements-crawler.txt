@@ -1,0 +1,5 @@
+# Only needed to fetch real pages (LLMFIT_CRAWLER=crawl4ai).
+# Kept separate because it pulls in a browser and about seventy packages, none
+# of which the API or the tests need.
+-r requirements.txt
+crawl4ai

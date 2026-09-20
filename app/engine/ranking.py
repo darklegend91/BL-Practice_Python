@@ -1,53 +1,44 @@
-"""Deterministic ordering of feasible candidates (guide section 6, step 7).
+"""Puts the options that fit in order, using whichever priority you chose.
 
-Ranking uses the user's selected priority with documented tie-breakers, so the
-same scenario, catalog and policy always yield the same order.
+The tie-breakers are fixed and written down, so the same question always gets
+the same answer in the same order.
 """
 
 from __future__ import annotations
 
 from decimal import Decimal
 
-from app.schemas.common import DeploymentKind, Priority
-from app.schemas.result import CandidateResult
+from app.schemas import Deployment, Option, Priority
 
 TIE_BREAKERS = (
-    "lower total horizon cash cost",
-    "lower upfront cash cost",
+    "lower total cost over the whole period",
+    "lower upfront cost",
     "fewer setup hours",
-    "candidate identifier, ascending",
+    "identifier, alphabetically",
 )
 
-_OFFLINE_RANK = {
-    DeploymentKind.EXISTING_LOCAL: 0,
-    DeploymentKind.LOCAL_UPGRADE: 1,
-    DeploymentKind.NEW_LOCAL_MACHINE: 2,
-    DeploymentKind.HOSTED_SUBSCRIPTION: 3,
+_LOCAL_FIRST = {
+    Deployment.EXISTING_COMPUTER: 0,
+    Deployment.UPGRADE: 1,
+    Deployment.NEW_MACHINE: 2,
+    Deployment.SUBSCRIPTION: 3,
 }
 
-_HUGE = Decimal("1e18")
+_LAST = Decimal("1e15")
 
 
-def _horizon(candidate: CandidateResult) -> Decimal:
-    return candidate.cost.horizon_total.amount if candidate.cost else _HUGE
+def _key(option: Option, priority: Priority) -> tuple:
+    total = option.cost.total if option.cost else _LAST
+    upfront = option.cost.upfront if option.cost else _LAST
+    setup = option.setup_hours if option.setup_hours is not None else _LAST
+    tail = (total, upfront, setup, option.id)
 
-
-def _upfront(candidate: CandidateResult) -> Decimal:
-    return candidate.cost.upfront.amount if candidate.cost else _HUGE
-
-
-def _setup(candidate: CandidateResult) -> Decimal:
-    return candidate.setup_hours if candidate.setup_hours is not None else _HUGE
-
-
-def sort_key(candidate: CandidateResult, priority: Priority) -> tuple:
-    tail = (_horizon(candidate), _upfront(candidate), _setup(candidate), candidate.candidate_id)
-    if priority is Priority.LOWEST_CASH_COST:
+    if priority is Priority.LOWEST_COST:
         return tail
     if priority is Priority.LEAST_SETUP:
-        return (_setup(candidate), *tail)
-    return (_OFFLINE_RANK[candidate.deployment], *tail)
+        return (setup, *tail)
+    return (_LOCAL_FIRST[option.deployment], *tail)
 
 
-def rank(candidates: list[CandidateResult], priority: Priority) -> list[CandidateResult]:
-    return sorted(candidates, key=lambda candidate: sort_key(candidate, priority))
+def rank(options: list[Option], priority: Priority) -> list[Option]:
+    return sorted(options, key=lambda option: _key(option, priority))

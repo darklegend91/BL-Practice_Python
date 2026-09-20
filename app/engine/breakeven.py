@@ -1,60 +1,44 @@
-"""Break-even between two cumulative cash schedules (guide section 6).
+"""When one option becomes cheaper than another, if it ever does.
 
-Crossovers are found by walking the horizon month by month, so an annual
-renewal step is visible and later reversals are reported rather than hidden by
-comparing only the endpoints.
+Compares the running totals month by month rather than only the end, so an
+annual renewal is visible and a comparison that flips back is reported.
 """
 
 from __future__ import annotations
 
-from app.schemas.result import BreakEven, CostBreakdown
+from app.schemas import BreakEven, Cost
 
 
-def compare(
-    subject_id: str,
-    subject: CostBreakdown,
-    reference_id: str,
-    reference: CostBreakdown,
-    months: int,
-) -> BreakEven:
-    """Find when ``subject`` stops being the more expensive of the two, if ever."""
-    crossover: int | None = None
-    reversals: list[int] = []
+def compare(mine: str, mine_cost: Cost, theirs: str, theirs_cost: Cost, months: int) -> BreakEven:
+    cheaper_from: int | None = None
+    flips: list[int] = []
+    was_cheaper: bool | None = None
 
-    previous_cheaper: bool | None = None
     for month in range(1, months + 1):
-        subject_total = subject.monthly[month - 1].cumulative.amount
-        reference_total = reference.monthly[month - 1].cumulative.amount
-        cheaper = subject_total <= reference_total
+        cheaper = mine_cost.months[month - 1].running_total <= theirs_cost.months[month - 1].running_total
 
-        if previous_cheaper is None:
-            previous_cheaper = cheaper
+        if was_cheaper is None:
+            was_cheaper = cheaper
             if cheaper:
-                crossover = month
+                cheaper_from = month
             continue
 
-        if cheaper != previous_cheaper:
-            if crossover is None and cheaper:
-                crossover = month
+        if cheaper != was_cheaper:
+            if cheaper_from is None and cheaper:
+                cheaper_from = month
             else:
-                reversals.append(month)
-            previous_cheaper = cheaper
+                flips.append(month)
+            was_cheaper = cheaper
 
-    if crossover is None:
-        note = (
-            f"{subject_id} does not become cheaper than {reference_id} within "
-            f"{months} months."
-        )
-    elif crossover == 1:
-        note = f"{subject_id} is cheaper than {reference_id} from the first month."
+    if cheaper_from is None:
+        note = f"{mine} never becomes cheaper than {theirs} within {months} months."
+    elif cheaper_from == 1:
+        note = f"{mine} is cheaper than {theirs} from the very first month."
     else:
-        note = f"{subject_id} becomes cheaper than {reference_id} in month {crossover}."
-    if reversals:
-        note += f" The comparison reverses again in month(s) {', '.join(map(str, reversals))}."
+        note = f"{mine} becomes cheaper than {theirs} in month {cheaper_from}."
+    if flips:
+        note += f" It swaps back in month {', '.join(map(str, flips))}."
 
     return BreakEven(
-        against_candidate_id=reference_id,
-        crossover_month=crossover,
-        later_reversal_months=reversals,
-        note=note,
+        versus=theirs, cheaper_from_month=cheaper_from, flips_back_in_months=flips, note=note
     )
