@@ -79,15 +79,32 @@ below.
 
 There is no login. There are no tokens or headers.
 
+Every `POST` has a `GET` beside it that tells you what to send, so you can find
+your way around without leaving the API.
+
 | Endpoint | What it is for |
 | --- | --- |
+| `GET /` | What the project is, how to set it up, every endpoint explained |
 | `GET /options` | Every choice you can make, and the number each one means |
 | `POST /recommend` | Send your answers, get the recommendation |
+| `GET /recommend` | What to send to `POST /recommend`, with an example to copy |
 | `GET /catalog` | The hardware, models and plans the answer used |
 | `GET /pages` | What the crawler fetched and how much of it it understood |
 | `GET /sources` / `POST /sources` | The pages the crawler visits |
+| `GET /sources/help` | What to send to `POST /sources` |
 | `POST /crawl` | Fetch every source again now |
+| `GET /crawl` | What `POST /crawl` does and what it returns |
 | `GET /health` | Is the app up, is the database reachable |
+
+If you are not sure where to begin, `curl localhost:8000/` prints the lot.
+
+`GET /sources` already lists the registered sources, so the instructions for
+adding one live at `GET /sources/help` rather than on the bare path.
+
+The help is generated from the same Pydantic models the endpoints validate
+against, and tests check that every field is documented and that the example
+bodies are really accepted. It cannot drift from the code without a test
+failing.
 
 ### Asking for a recommendation
 

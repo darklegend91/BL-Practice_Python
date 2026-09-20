@@ -42,15 +42,23 @@ each one means.
 
 ## The whole API
 
+Every `POST` has a `GET` beside it that tells you what to send it.
+
 | Endpoint | What it does |
 | --- | --- |
+| `GET /` | Start here. What this is, how to set it up, every endpoint explained |
 | `POST /recommend` | Send your answers, get the recommendation |
+| `GET /recommend` | What to send to `POST /recommend`, with an example to copy |
 | `GET /options` | What you are allowed to choose |
 | `GET /catalog` | The data the answer was based on |
 | `GET /pages` | What the crawler fetched |
 | `GET /sources`, `POST /sources` | The pages the crawler visits |
+| `GET /sources/help` | What to send to `POST /sources` |
 | `POST /crawl` | Fetch them all again now |
+| `GET /crawl` | What `POST /crawl` does |
 | `GET /health` | Up, and database reachable |
+
+Lost? `curl localhost:8000/` explains everything, including the setup steps.
 
 ## How it fits together
 

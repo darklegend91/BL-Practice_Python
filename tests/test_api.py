@@ -40,8 +40,9 @@ def fill(client) -> dict:
 def test_every_route_works_without_any_credentials(client):
     fill(client)
     for method, path in [
-        ("get", "/health"), ("get", "/options"), ("get", "/catalog"),
-        ("get", "/pages"), ("get", "/sources"),
+        ("get", "/"), ("get", "/health"), ("get", "/options"), ("get", "/catalog"),
+        ("get", "/pages"), ("get", "/sources"), ("get", "/sources/help"),
+        ("get", "/recommend"), ("get", "/crawl"),
     ]:
         assert getattr(client, method)(path).status_code == 200, path
     assert client.post("/recommend", json=ASK).status_code == 200
@@ -53,10 +54,11 @@ def test_there_is_no_login_or_register_route(client):
         assert absent not in paths
 
 
-def test_the_whole_api_is_six_routes(client):
+def test_the_whole_api_is_this_short_list(client):
     paths = set(client.get("/openapi.json").json()["paths"])
     assert paths == {
-        "/health", "/options", "/recommend", "/catalog", "/pages", "/sources", "/crawl",
+        "/", "/health", "/options", "/recommend", "/catalog", "/pages",
+        "/sources", "/sources/help", "/crawl",
     }
 
 

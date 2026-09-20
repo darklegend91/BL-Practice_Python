@@ -1,14 +1,20 @@
 """The whole API. No accounts, no tokens, no headers to remember.
 
-    GET  /options   what you are allowed to choose
-    POST /recommend send your choices, get an answer back
-    GET  /catalog   the data the answer was based on
-    GET  /pages     the pages the crawler stored
-    POST /crawl     fetch the sources again now
-    GET  /health    is the app up and is the database reachable
+    GET  /              what this project is and how to use it
+    GET  /options       what you are allowed to choose
+    POST /recommend     send your choices, get an answer back
+    GET  /recommend     what to send to POST /recommend
+    GET  /catalog       the data the answer was based on
+    GET  /pages         the pages the crawler stored
+    GET  /sources       the pages the crawler visits
+    POST /sources       register one
+    GET  /sources/help  what to send to POST /sources
+    POST /crawl         fetch the sources again now
+    GET  /crawl         what POST /crawl does
+    GET  /health        is the app up and is the database reachable
 
-``POST /recommend`` is the one that matters. Everything else exists so you can
-see what it is working from.
+``POST /recommend`` is the one that matters. Every POST has a GET beside it
+that tells you what to send, and ``GET /`` explains the whole thing.
 """
 
 from __future__ import annotations
@@ -22,9 +28,10 @@ from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app import catalog as catalog_loader, crawler
+from app import catalog as catalog_loader, crawler, help as help_text
 from app.db import Page, Source, get_session
 from app.engine.recommend import recommend
+from app.help import EndpointHelp, FieldHelp, Home
 from app.options import all_options
 from app.schemas import Catalog, RecommendInput, Result, Strict
 from app.version import APP_VERSION
@@ -83,6 +90,12 @@ async def _crawl_failed(request: Request, error: crawler.CrawlError):
 # --------------------------------------------------------------------------- #
 
 
+@app.get("/", response_model=Home, tags=["start here"])
+def home() -> Home:
+    """What this project is, how to set it up, and every endpoint explained."""
+    return help_text.home()
+
+
 @app.get("/health", tags=["basics"])
 def health(session: Session = Depends(get_session)) -> dict:
     try:
@@ -109,6 +122,19 @@ def make_recommendation(
     """
     available = catalog_loader.load(session, region=answers.region)
     return recommend(answers, available)
+
+
+class RecommendHelp(EndpointHelp):
+    existing_computer_fields: list[FieldHelp] = []
+
+
+@app.get("/recommend", response_model=RecommendHelp, tags=["the main one"])
+def what_to_send_to_recommend() -> RecommendHelp:
+    """What to put in the body of POST /recommend, with an example you can copy."""
+    return RecommendHelp(
+        **help_text.recommend_help().model_dump(),
+        existing_computer_fields=help_text.existing_computer_fields(),
+    )
 
 
 @app.get("/catalog", response_model=Catalog, tags=["see the data"])
@@ -168,6 +194,22 @@ def add_source(new: SourceIn, session: Session = Depends(get_session)) -> dict:
     session.add(Source(url=new.url, label=new.label))
     session.flush()
     return {"url": new.url, "label": new.label, "enabled": True}
+
+
+@app.get("/sources/help", response_model=EndpointHelp, tags=["see the data"])
+def what_to_send_to_sources() -> EndpointHelp:
+    """What to put in the body of POST /sources.
+
+    The plain GET /sources is already taken by the list of registered sources,
+    so the instructions live here.
+    """
+    return help_text.sources_help()
+
+
+@app.get("/crawl", response_model=EndpointHelp, tags=["crawler"])
+def what_crawl_does() -> EndpointHelp:
+    """What POST /crawl does and what it gives back. It takes no body."""
+    return help_text.crawl_help()
 
 
 @app.post("/crawl", tags=["crawler"])
