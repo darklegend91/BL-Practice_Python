@@ -1,0 +1,10 @@
+# Dependencies for the learning prototypes under src/ (guide section 15).
+#
+# Kept apart from requirements.txt on purpose: the production image installs
+# that file, and the guide keeps the browser-driving Crawl4AI dependency out of
+# the API and worker images. Install this only to run the src/ scripts and
+# their tests.
+crawl4ai
+httpx
+pytest
+requests

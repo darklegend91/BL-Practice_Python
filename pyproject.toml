@@ -1,0 +1,36 @@
+[project]
+name = "llm-fit-advisor"
+version = "0.1.0"
+description = "Decides between running a downloadable model locally and buying a hosted subscription"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.4",
+    "sqlalchemy>=2.0.30",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    "argon2-cffi>=23.1",
+]
+
+[project.optional-dependencies]
+# Kept separate so the API process and the test suite never need a browser.
+collect = ["crawl4ai>=0.4"]
+dev = ["pytest>=8.3", "httpx>=0.27"]
+
+[project.scripts]
+llmfit-api = "app.main:app"
+llmfit-crawler = "app.workers.crawler:main"
+llmfit-scheduler = "app.workers.scheduler:main"
+llmfit-seed = "app.seed.load:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# pytest is configured in pytest.ini, which takes precedence over this file and
+# also covers the learning prototypes under src/.
