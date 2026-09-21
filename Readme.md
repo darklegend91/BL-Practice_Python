@@ -110,10 +110,3 @@ make test
 The engine tests need only Python. The crawler and API tests want a PostgreSQL
 test database (`createdb llmfit_test --owner llmfit`) and skip without one.
 Nothing in the suite touches the internet.
-
-## Also in this repository
-
-`src/` holds earlier practice scripts from the fellowship (HTTP clients, a
-crawler, a parser, a small server) with their tests in `tests/`. They are
-unrelated to the app above and have their own dependencies in
-`requirements-prototype.txt`.
