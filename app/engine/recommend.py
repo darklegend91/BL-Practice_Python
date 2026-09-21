@@ -145,13 +145,17 @@ def recommend(
     ]
 
     solid = [pair for pair in pairs if pair[1].fits and not pair[1].uncertain]
-    shaky = [pair[1] for pair in pairs if pair[1].fits and pair[1].uncertain]
+    shaky = [pair for pair in pairs if pair[1].fits and pair[1].uncertain]
     impossible = [pair[1] for pair in pairs if not pair[1].fits]
 
     ordered = ranking.rank([option for _, option in solid], request.priority)
-    ordered_shaky = ranking.rank(shaky, request.priority)
+    ordered_shaky = ranking.rank([option for _, option in shaky], request.priority)
 
-    cases, changes = _three_cases(solid, request, used, policy)
+    # Over everything that could actually be run, not only what is confirmed.
+    # Looking at the confirmed ones alone meant that when every option was
+    # missing a fact, all three cases reported "nothing", which told you less
+    # than the question deserved.
+    cases, changes = _three_cases(solid + shaky, request, used, policy)
 
     notes: list[Finding] = []
     if changes:

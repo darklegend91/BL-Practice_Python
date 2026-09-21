@@ -113,21 +113,24 @@ def _check_local(
     model = candidate.model
     machine = candidate.machine
     label = candidate.label
+    # The context limit and the licence belong to the model, not to the pairing
+    # of model and machine, so findings about them say the model's name.
+    model_name = model.name
 
     # A model on your own machine is reachable by your own programs, so both
     # interactive use and application integration are fine.
 
     if request.commercial_use:
         if model.commercial_use is False:
-            result.note(reasons.COMMERCIAL_USE_NOT_ALLOWED, blocking=True, option=label)
+            result.note(reasons.COMMERCIAL_USE_NOT_ALLOWED, blocking=True, option=model_name)
         elif model.commercial_use is None:
-            result.note(reasons.COMMERCIAL_USE_UNKNOWN, option=label)
+            result.note(reasons.COMMERCIAL_USE_UNKNOWN, option=model_name)
 
     if model.max_context is None:
-        result.note(reasons.CONTEXT_LIMIT_UNKNOWN, option=label)
+        result.note(reasons.CONTEXT_LIMIT_UNKNOWN, option=model_name)
     elif model.max_context < used.context_tokens:
         result.note(
-            reasons.CONTEXT_TOO_SHORT, blocking=True, option=label,
+            reasons.CONTEXT_TOO_SHORT, blocking=True, option=model_name,
             supported=model.max_context, wanted=used.context_tokens,
         )
 
@@ -140,7 +143,7 @@ def _check_local(
             result.note(reasons.MEMORY_ESTIMATE_APPROXIMATE, model=model.name)
         _check_memory(memory, machine, model, request, used, result)
 
-    _suitability(model.suitable_for, label, request, result)
+    _suitability(model.suitable_for, model_name, request, result)
 
     if not machine.power_measured:
         result.note(reasons.POWER_IS_ASSUMED, machine=machine.label)

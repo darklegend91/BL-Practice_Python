@@ -17,7 +17,9 @@ import enum
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator,
+)
 
 # --------------------------------------------------------------------------- #
 # Options: every choice is a stable identifier, never a display position
@@ -280,7 +282,20 @@ class Cost(Strict):
     upfront: Decimal
     months: list[Month]
     total: Decimal
+    """What is known to be spent. When ``electricity_unknown`` is set this is a
+    floor rather than a total: the running cost is missing from it, so it is a
+    "at least this much", not "this much"."""
     electricity_unknown: bool = False
+
+    @computed_field
+    @property
+    def total_is_complete(self) -> bool:
+        """False when something real is missing from the total.
+
+        Sent over HTTP as well, so a caller does not have to know that an
+        unknown electricity price is the thing that makes a total a floor.
+        """
+        return not self.electricity_unknown
 
 
 class BreakEven(Strict):

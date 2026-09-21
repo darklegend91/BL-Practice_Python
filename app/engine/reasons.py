@@ -97,6 +97,27 @@ MESSAGES: dict[str, str] = {
 }
 
 
+# A short way to say the same thing without naming the option, for when a
+# caveat applies to every option in a list and repeating it per row would bury
+# the differences that actually matter.
+IN_SHORT: dict[str, str] = {
+    MEMORY_ESTIMATE_APPROXIMATE:
+        "the memory estimate is rough, because layer sizes are not published",
+    COMMERCIAL_USE_UNKNOWN: "nobody has confirmed whether commercial use is allowed",
+    SUITABILITY_UNKNOWN: "nothing on record says whether it suits your workload",
+    CONTEXT_LIMIT_UNKNOWN: "the context limit is not recorded",
+    DAILY_LIMIT_UNKNOWN: "no daily message limit is published",
+    POWER_IS_ASSUMED: "power use is an assumption, not a measurement",
+    NO_ELECTRICITY_PRICE:
+        "you gave no electricity price, so running cost is unknown rather than zero",
+    NO_PRICE: "there is no price for it in your region",
+}
+
+
+def in_short(code: str) -> str:
+    return IN_SHORT.get(code, code)
+
+
 def say(code: str, **values: object) -> str:
     """Fill in a message. A missing value shows up instead of crashing."""
     try:

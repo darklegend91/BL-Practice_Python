@@ -259,3 +259,114 @@ def test_several_workloads_can_be_given_at_once(monkeypatch):
     _answers(monkeypatch, ["1,3"] + [""] * 20)
     request = ask_interactively()
     assert [w.value for w in request.workloads] == ["coding", "writing"]
+
+
+# --------------------------------------------------------------------------- #
+# An incomplete total must never read as a settled one
+# --------------------------------------------------------------------------- #
+
+
+def test_an_unknown_running_cost_is_not_presented_as_a_total():
+    """Without an electricity price the total is a floor, and 0.00 reads as free."""
+    answer = recommend(ask(electricity_per_kwh=None), a_catalog())
+    local = next(
+        o for o in answer.uncertain + answer.runners_up + ([answer.best] if answer.best else [])
+        if o.cost is not None and o.cost.electricity_unknown
+    )
+    line = render.total_of(local.cost)
+    assert "running cost" in line
+    assert line != render.money(local.cost.total, local.cost.currency)
+
+
+def test_a_complete_total_is_shown_plainly():
+    answer = recommend(ask(), a_catalog())
+    complete = next(
+        o for o in [answer.best] + answer.runners_up
+        if o.cost is not None and not o.cost.electricity_unknown
+    )
+    assert "running cost" not in render.total_of(complete.cost)
+
+
+def test_the_cost_says_whether_it_is_complete():
+    answer = recommend(ask(electricity_per_kwh=None), a_catalog())
+    local = next(o for o in answer.uncertain if o.cost and o.cost.electricity_unknown)
+    assert local.cost.total_is_complete is False
+
+
+def test_every_incomplete_total_in_a_report_carries_the_caveat():
+    """Check the options themselves, not a substring of the rendered line.
+
+    An earlier version of this test looked for "0.00 EUR" before "up front",
+    which also matches "480.00 EUR".
+    """
+    answer = recommend(ask(electricity_per_kwh=None), a_catalog())
+    shown = ([answer.best] if answer.best else []) + answer.runners_up + answer.uncertain
+    incomplete = [o for o in shown if o.cost is not None and o.cost.electricity_unknown]
+    assert incomplete, "this scenario should produce at least one incomplete total"
+    for option in incomplete:
+        assert "running cost" in render.total_of(option.cost)
+    complete = [o for o in shown if o.cost is not None and not o.cost.electricity_unknown]
+    for option in complete:
+        assert "running cost" not in render.total_of(option.cost)
+
+
+# --------------------------------------------------------------------------- #
+# The assumption cases must describe something
+# --------------------------------------------------------------------------- #
+
+
+def test_the_cases_cover_options_that_are_merely_uncertain():
+    """With nothing confirmed, the three cases used to report 'nothing'."""
+    answer = recommend(ask(), a_catalog(models=[a_model(suitable_for=[])],
+                                        plans=[a_plan(suitable_for=[])]))
+    assert answer.status is ResultStatus.ONLY_UNCERTAIN_OPTIONS
+    assert all(case.winner is not None for case in answer.cases)
+
+
+def test_the_cases_name_the_option_rather_than_its_identifier():
+    answer = recommend(ask(), a_catalog(models=[a_model(suitable_for=[])],
+                                        plans=[a_plan(suitable_for=[])]))
+    text = render.result(answer)
+    winner = next(o for o in answer.uncertain if o.id == answer.cases[0].winner)
+    assert winner.label[:20] in text
+
+
+# --------------------------------------------------------------------------- #
+# Findings name the thing they are about
+# --------------------------------------------------------------------------- #
+
+
+def test_a_models_context_limit_is_reported_against_the_model():
+    """The limit belongs to the model, not to the model-plus-machine pairing."""
+    catalog = a_catalog(models=[a_model(slug="small", context=4096)])
+    answer = recommend(ask(context="long_document"), catalog)
+    option = next(o for o in answer.ruled_out if "small" in o.id)
+    message = next(f.message for f in option.findings if f.code == "CONTEXT_TOO_SHORT")
+    assert message.startswith("Model small")
+    assert " on my computer handles" not in message
+
+
+# --------------------------------------------------------------------------- #
+# Repeated caveats are said once
+# --------------------------------------------------------------------------- #
+
+
+def test_caveats_shared_by_most_options_are_stated_once_with_a_count():
+    catalog = a_catalog(models=[
+        a_model(slug=f"m{n}", suitable_for=[], layers=None, kv_heads=None, head_dim=None)
+        for n in range(6)
+    ])
+    answer = recommend(ask(electricity_per_kwh=None), catalog)
+    text = render.result(answer)
+    assert "What most of them have in common:" in text
+    assert "of " in text  # the "(N of M)" coverage
+    # The hoisted caveat should not also appear on every row.
+    assert text.count("layer sizes are not published") <= 2
+
+
+def test_a_caveat_on_only_some_options_stays_on_its_own_rows():
+    from app.render import _common_codes
+
+    answer = recommend(ask(), a_catalog())
+    rare = _common_codes(answer.uncertain[:1])
+    assert rare == []  # too few options to summarise

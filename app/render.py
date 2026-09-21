@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from app.engine import reasons
 from app.schemas import Catalog, Option, Result, ResultStatus
 
 RULE = "-" * 72
@@ -19,15 +20,75 @@ def money(amount: Decimal | None, currency: str) -> str:
     return f"{amount.quantize(Decimal('0.01'))} {currency}"
 
 
+def total_of(cost) -> str:
+    """The total, said in a way that does not overstate what is known.
+
+    When the running cost is missing, the figure is a floor. Printing it as a
+    plain total would be exactly the "a missing price is not zero" mistake this
+    app promises not to make - and with nothing else to pay, that floor is
+    0.00, which reads as free.
+    """
+    if cost is None:
+        return "no price"
+    if cost.electricity_unknown:
+        return f"{money(cost.total, cost.currency)} + running cost"
+    return money(cost.total, cost.currency)
+
+
 def _option_line(option: Option, place: str) -> str:
     cost = option.cost
-    total = money(cost.total, cost.currency) if cost else "no price"
     upfront = money(cost.upfront, cost.currency) if cost else "-"
-    return f"  {place:<3} {option.label[:44]:<44} {total:>16}   up front {upfront}"
+    return f"  {place:<3} {option.label[:42]:<42} {total_of(cost):>26}   up front {upfront}"
 
 
 def _findings(option: Option, indent: str = "       ") -> list[str]:
     return [f"{indent}- {finding.message}" for finding in option.findings]
+
+
+COMMON_ENOUGH = 0.66
+"""How much of a list a caveat has to cover before it is worth saying once at
+the top instead of on every row."""
+
+
+def _common_codes(options: list[Option]) -> list[tuple[str, int]]:
+    """Reason codes that cover most of these options, with how many.
+
+    Grouped by code rather than by message, because a message names the option
+    it is about and so is never identical twice even when the reason is. The
+    count is shown rather than hidden, because "most" is not "all" and the
+    reader should not have to assume which.
+    """
+    total = len(options)
+    if total < 3:
+        return []
+
+    counts: dict[str, int] = {}
+    for option in options:
+        for code in {finding.code for finding in option.findings}:
+            counts[code] = counts.get(code, 0) + 1
+
+    ordered = [
+        (code, count) for code, count in counts.items()
+        if count >= 3 and count / total >= COMMON_ENOUGH
+    ]
+    ordered.sort(key=lambda pair: (-pair[1], pair[0]))
+    return ordered
+
+
+def _cases_cannot_differ(answer: Result) -> bool:
+    """True when every case had the same figures to work with.
+
+    Usage and power only move the electricity bill. With no electricity price
+    and nothing else recurring, the three cases are the same sum three times.
+    """
+    totals = {case.total for case in answer.cases}
+    if len(totals) > 1:
+        return False
+    considered = ([answer.best] if answer.best else []) + answer.runners_up + answer.uncertain
+    return bool(considered) and all(
+        option.cost is not None and option.cost.electricity_unknown
+        for option in considered
+    )
 
 
 def result(answer: Result, *, show_all: bool = False) -> str:
@@ -72,9 +133,24 @@ def result(answer: Result, *, show_all: bool = False) -> str:
 
     if answer.uncertain:
         out.append(f"Missing a fact, so not confirmed ({len(answer.uncertain)}):")
+
+        # Most of these caveats are the same on every option, because they come
+        # from what the source does not publish rather than from the option.
+        # Saying them once leaves the list readable and the differences visible.
+        common = _common_codes(answer.uncertain)
+        hoisted = {code for code, _ in common}
+        if common:
+            total = len(answer.uncertain)
+            out.append("  What most of them have in common:")
+            for code, count in common:
+                how_many = "all of them" if count == total else f"{count} of {total}"
+                out.append(f"    - {reasons.in_short(code)}  ({how_many})")
+            out.append("")
+
         for place, option in enumerate(answer.uncertain[:5], start=1):
             out.append(_option_line(option, f"{place}."))
-            out.extend(_findings(option))
+            extra = [f.message for f in option.findings if f.code not in hoisted]
+            out.extend(f"       - {message}" for message in extra)
         if len(answer.uncertain) > 5:
             out.append(f"       ...and {len(answer.uncertain) - 5} more")
         out.append("")
@@ -98,13 +174,36 @@ def result(answer: Result, *, show_all: bool = False) -> str:
         out.append("")
 
     if answer.cases:
+        # Cases carry the option's identifier; people want its name.
+        known = {
+            option.id: option
+            for group in (
+                [answer.best] if answer.best else [],
+                answer.runners_up, answer.uncertain,
+            )
+            for option in group
+        }
         out.append("Under different assumptions:")
         for case in answer.cases:
-            winner = case.winner or "nothing"
-            total = f" at {case.total.quantize(Decimal('0.01'))}" if case.total else ""
-            out.append(f"  {case.case:<5} {case.description:<38} {winner[:30]}{total}")
+            winning = known.get(case.winner) if case.winner else None
+            winner = winning.label if winning else (case.winner or "nothing fits")
+            if case.total is None:
+                total = ""
+            elif winning is not None and winning.cost is not None and (
+                winning.cost.electricity_unknown
+            ):
+                # Same floor, same caveat: do not print it as a settled figure.
+                total = f"  {case.total.quantize(Decimal('0.01'))} + running cost"
+            else:
+                total = f"  {case.total.quantize(Decimal('0.01'))}"
+            out.append(f"  {case.case:<5} {case.description:<34} {winner[:40]}{total}")
         if answer.answer_changes_with_assumptions:
             out.append("  ! the winner changes between these, so treat it as close")
+        elif _cases_cannot_differ(answer):
+            out.append(
+                "  these are identical because the running cost is unknown, so there "
+                "is nothing for the assumptions to change"
+            )
         out.append("")
 
     out.append("Assumptions:")
