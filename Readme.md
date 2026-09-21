@@ -23,6 +23,20 @@ make db      # creates tables, registers example sources, crawls them
 make run     # http://localhost:8000/docs
 ```
 
+Those steps use the bundled example pages. For real data from Wikipedia and
+Ollama instead:
+
+```bash
+pip install -r requirements-crawler.txt && python -m playwright install chromium
+export LLMFIT_CRAWLER=crawl4ai
+python -m app.seed --real && python -m app.crawler
+```
+
+About forty real rows in half a minute. Read the caveats in
+[`docs/guide.md`](docs/guide.md#real-sources) first: the prices are *launch*
+prices in USD, and Ollama does not publish enough for any model to count as
+confirmed.
+
 Then ask it something:
 
 ```bash

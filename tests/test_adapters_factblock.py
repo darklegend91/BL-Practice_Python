@@ -5,14 +5,19 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
-from app.extract import as_bool, as_money, as_workloads, blocks, read_page
+from app.adapters import read
+from app.adapters.factblock import as_bool, as_money, as_workloads, blocks
 
 PAGES = Path(__file__).parent / "fixtures" / "pages"
+
+
+def read_factblock(markdown: str, source_url: str):
+    return read("factblock", markdown, source_url)
 SOURCE = "https://sample-vendor.example.invalid/gpus"
 
 
 def test_a_page_with_no_fact_blocks_yields_nothing():
-    found = read_page("# Just a normal page\n\nSome prose about graphics cards.", SOURCE)
+    found = read_factblock("# Just a normal page\n\nSome prose about graphics cards.", SOURCE)
     assert found.count == 0
 
 
@@ -28,7 +33,7 @@ def test_an_unknown_block_kind_is_ignored():
 
 
 def test_hardware_is_read_with_its_price_and_currency():
-    found = read_page(
+    found = read_factblock(
         (PAGES / "sample-vendor.example.invalid" / "gpus.md").read_text(), SOURCE
     )
     card = next(row for row in found.hardware if row.slug == "gpu-16g")
@@ -40,7 +45,7 @@ def test_hardware_is_read_with_its_price_and_currency():
 
 
 def test_a_whole_machine_is_distinguished_from_a_card():
-    found = read_page(
+    found = read_factblock(
         (PAGES / "sample-vendor.example.invalid" / "gpus.md").read_text(), SOURCE
     )
     roles = {row.slug: row.role for row in found.hardware}
@@ -50,12 +55,12 @@ def test_a_whole_machine_is_distinguished_from_a_card():
 
 def test_hardware_without_a_role_is_skipped():
     """Without a role we cannot tell a spare part from a whole computer."""
-    found = read_page("## hardware: mystery\n- name: Something\n- price: 10.00 EUR\n", SOURCE)
+    found = read_factblock("## hardware: mystery\n- name: Something\n- price: 10.00 EUR\n", SOURCE)
     assert found.hardware == []
 
 
 def test_a_model_keeps_the_details_that_size_its_memory():
-    found = read_page(
+    found = read_factblock(
         (PAGES / "sample-models.example.invalid" / "open-models.md").read_text(), SOURCE
     )
     small = next(row for row in found.models if row.slug == "sampleopen-8b-q4")
@@ -65,7 +70,7 @@ def test_a_model_keeps_the_details_that_size_its_memory():
 
 
 def test_a_missing_field_becomes_unknown_not_zero():
-    found = read_page(
+    found = read_factblock(
         (PAGES / "sample-models.example.invalid" / "open-models.md").read_text(), SOURCE
     )
     large = next(row for row in found.models if row.slug == "sampleopen-70b-q4")
@@ -73,7 +78,7 @@ def test_a_missing_field_becomes_unknown_not_zero():
 
 
 def test_plans_read_their_billing_and_regions():
-    found = read_page(
+    found = read_factblock(
         (PAGES / "sample-host.example.invalid" / "plans.md").read_text(), SOURCE
     )
     annual = next(row for row in found.plans if row.slug == "samplehost-team-annual")
@@ -105,7 +110,7 @@ def test_unknown_workload_names_are_dropped():
 
 
 def test_nonsense_numbers_become_unknown():
-    found = read_page(
+    found = read_factblock(
         "## model: odd\n- name: Odd\n- weights_gb: lots\n- max_context: soon\n", SOURCE
     )
     assert found.models[0].weights_gb is None
@@ -114,7 +119,7 @@ def test_nonsense_numbers_become_unknown():
 
 def test_the_parser_uses_no_regular_expressions_or_selectors():
     """The original design forbids regex and selectors in extraction code."""
-    source = Path("app/extract.py").read_text()
+    source = Path("app/adapters/factblock.py").read_text()
     for banned in (
         "import re\n", "from re import", "import regex",
         "re.compile(", "re.match(", "re.search(", "re.findall(", "re.sub(", "re.split(",

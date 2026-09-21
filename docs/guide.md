@@ -193,17 +193,76 @@ curl -X POST localhost:8000/crawl
 ```
 
 To fetch real pages rather than the saved examples, set
-`LLMFIT_CRAWLER=crawl4ai` and install the crawler extra:
+`LLMFIT_CRAWLER=crawl4ai`, install the crawler extra and its browser:
 
 ```bash
 .venv/bin/pip install -r requirements-crawler.txt
+.venv/bin/python -m playwright install chromium
 ```
 
-**This is the honest limitation.** The extractor reads that fact-block format
-and nothing else. A normal vendor page will not match it, and you will get zero
-rows rather than wrong ones. To read a real site you would write a small
-converter for that site. Parsing is deliberately plain string handling, with no
-regular expressions and no CSS selectors, which is why it stays readable.
+## Real sources
+
+The app ships with readers for two real sites. Register them and crawl:
+
+```bash
+export LLMFIT_CRAWLER=crawl4ai
+pip install -r requirements-crawler.txt
+python -m playwright install chromium
+python -m app.seed --real
+python -m app.crawler
+```
+
+That gives roughly forty rows of real data in half a minute.
+
+| Source | What you get | Reader |
+| --- | --- | --- |
+| Wikipedia GPU series pages | Card names, memory size, board power, launch price | `wikipedia_gpu` |
+| Ollama library tags pages | Model variants, download size, context length | `ollama_models` |
+
+**Read these caveats before trusting the numbers.**
+
+*Prices are launch prices in US dollars*, from Wikipedia, not what a shop
+charges today. Ask with `"region": "US"` and `"currency": "USD"` or they are
+excluded, which is correct rather than a bug.
+
+*Wikipedia merges cells*, so rows of one table genuinely differ in width and
+some carry no memory size at all. Each page therefore has its own list of
+layouts in `app/real_sources.py` saying how many cells a row has and which
+column is which. Rows that match no layout are counted and reported by
+`POST /crawl` instead of being guessed at.
+
+Reusing one page's layouts on another is exactly the mistake to avoid: it looks
+like it works and silently produces cards with 276 GB of memory. Two checks
+catch it. A memory size must be a size cards actually come in, and the cell has
+to be only a number, because `GDDR6X` contains a 6 and is not six gigabytes.
+Derive a new page's layouts from that page.
+
+*Ollama does not publish layer counts or licences*, so memory estimates from
+those models are marked approximate and commercial use stays unknown. Nor does
+it say what a model is good at, so every real model comes back as **uncertain**
+rather than confirmed. That is accurate, but it does mean a catalog built only
+from these sources returns `only_uncertain_options` with a ranked list, rather
+than picking a single winner.
+
+*There is no real source for subscription plans.* Provider pricing pages sit
+behind bot protection and do not publish machine-readable terms. Plans still
+come from the example page, so a catalog of only real sources has none and the
+comparison is between local options alone.
+
+Both sites' robots.txt were checked before being listed, and `app/robots.py`
+checks again on every run.
+
+## Adding a site of your own
+
+Write a reader in `app/adapters/`, add it to the table in that package's
+docstring, and register a source that names it. Every reader follows one rule:
+if the page does not look the way it expects, return nothing. Zero rows is
+visible in `GET /pages`; a wrong number quietly entering the catalog is not.
+
+**The fact-block reader is the simple case.** It reads the format above and
+nothing else, so an ordinary vendor page yields zero rows rather than wrong
+ones. Parsing everywhere is plain string handling, with no regular expressions
+and no CSS selectors, which is why it stays readable.
 
 ## How the answer is worked out
 

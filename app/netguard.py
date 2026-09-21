@@ -21,12 +21,35 @@ METADATA_ADDRESSES = frozenset({
     ipaddress.ip_address("100.100.100.200"),  # Alibaba Cloud
 })
 
+# On an IPv6-only network an ordinary public site resolves to something like
+# 64:ff9b::2224:850f, which carries the real IPv4 in its last 32 bits. Python
+# calls that whole range "reserved", so judging it as-is would refuse every
+# site on such a network. Unwrap it and judge where the traffic really goes,
+# which also means 64:ff9b::7f00:1 is correctly recognised as 127.0.0.1.
+NAT64_PREFIXES = (
+    ipaddress.ip_network("64:ff9b::/96"),    # RFC 6052 well-known prefix
+    ipaddress.ip_network("64:ff9b:1::/48"),  # RFC 8215 local-use prefix
+)
+
+
+def unwrap(address):
+    """Return the IPv4 inside a translated IPv6 address, or the address itself."""
+    if not isinstance(address, ipaddress.IPv6Address):
+        return address
+    if address.ipv4_mapped is not None:
+        return address.ipv4_mapped
+    for prefix in NAT64_PREFIXES:
+        if address in prefix:
+            return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+    return address
+
 
 class Blocked(ValueError):
     """This URL will not be fetched, and here is why."""
 
 
 def is_public(address) -> bool:
+    address = unwrap(address)
     if address in METADATA_ADDRESSES:
         return False
     return not (

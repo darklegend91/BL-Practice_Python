@@ -59,6 +59,10 @@ class Source(Base):
     id: Mapped[uuid.UUID] = _pk()
     url: Mapped[str] = mapped_column(Text, unique=True)
     label: Mapped[str] = mapped_column(String(200), server_default=text("''"))
+    adapter: Mapped[str] = mapped_column(String(40), server_default=text("'factblock'"))
+    """Which reader understands this page. See app/adapters/__init__.py."""
+    config: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    """Settings that reader needs, such as which column holds which value."""
     enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     created_at: Mapped[dt.datetime] = _updated()
 
@@ -88,9 +92,11 @@ class Hardware(Base):
     ram_gb: Mapped[float | None] = mapped_column(AMOUNT, nullable=True)
     active_watts: Mapped[float | None] = mapped_column(AMOUNT, nullable=True)
     idle_watts: Mapped[float | None] = mapped_column(AMOUNT, nullable=True)
+    gpu_board_watts: Mapped[float | None] = mapped_column(AMOUNT, nullable=True)
     price: Mapped[float | None] = mapped_column(MONEY, nullable=True)
     currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
     region: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    price_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     setup_hours: Mapped[float] = mapped_column(AMOUNT, server_default=text("2"))
     source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[dt.datetime] = _updated()

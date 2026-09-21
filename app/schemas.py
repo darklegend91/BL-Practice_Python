@@ -181,10 +181,17 @@ class Hardware(Strict):
     vram_gb: Decimal | None = None
     ram_gb: Decimal | None = None
     active_watts: Decimal | None = None
+    """Measured draw of the whole machine under load. Not a card's rating."""
     idle_watts: Decimal | None = None
+    gpu_board_watts: Decimal | None = None
+    """What the card itself is rated for. A real figure, but not the same thing
+    as whole-machine draw, so it is kept in its own column and only ever used
+    to build an assumption that is labelled as one."""
     price: Decimal | None = None
     currency: str | None = None
     region: str | None = None
+    price_note: str | None = None
+    """Where the price came from and what kind of price it is."""
     setup_hours: Decimal = Decimal("2")
     source_url: str | None = None
     updated_at: dt.datetime | None = None

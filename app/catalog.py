@@ -38,7 +38,9 @@ def load(session: Session, *, region: str | None = None) -> Catalog:
             slug=row.slug, name=row.name, role=row.role,
             vram_gb=_decimal(row.vram_gb), ram_gb=_decimal(row.ram_gb),
             active_watts=_decimal(row.active_watts), idle_watts=_decimal(row.idle_watts),
+            gpu_board_watts=_decimal(row.gpu_board_watts),
             price=_decimal(row.price), currency=row.currency, region=row.region,
+            price_note=row.price_note,
             setup_hours=_decimal(row.setup_hours) or Decimal("2"),
             source_url=row.source_url, updated_at=row.updated_at,
         )

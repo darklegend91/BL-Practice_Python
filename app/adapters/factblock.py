@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
+from app.adapters.text import slugify  # noqa: F401  (kept for callers)
 from app.schemas import BillingInterval, Hardware, Model, Plan, Workload
 
 BLOCK_MARKER = "## "
@@ -210,19 +211,10 @@ def _plan(block: Block, source_url: str) -> Plan:
     )
 
 
-class Found:
-    def __init__(self) -> None:
-        self.hardware: list[Hardware] = []
-        self.models: list[Model] = []
-        self.plans: list[Plan] = []
-
-    @property
-    def count(self) -> int:
-        return len(self.hardware) + len(self.models) + len(self.plans)
-
-
-def read_page(markdown: str, source_url: str) -> Found:
+def read(markdown: str, source_url: str, config: dict | None = None):
     """Everything this page has to say about the catalog."""
+    from app.adapters import Found
+
     found = Found()
     for block in blocks(markdown):
         if block.kind == "hardware":

@@ -24,6 +24,11 @@ class Policy(BaseModel):
     # Power, when the hardware does not state a measured figure
     assumed_active_watts: Decimal = Decimal("450")
     assumed_idle_watts: Decimal = Decimal("80")
+    rest_of_machine_active_watts: Decimal = Decimal("120")
+    """Added to a card's board rating to guess what the whole machine draws.
+    A card's rating is not a measurement of the machine around it, so anything
+    built this way is reported as an assumption."""
+    rest_of_machine_idle_watts: Decimal = Decimal("60")
 
     # The low / base / high runs
     low_power: Decimal = Decimal("0.75")

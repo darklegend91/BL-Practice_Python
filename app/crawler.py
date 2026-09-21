@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+from contextlib import asynccontextmanager
 import hashlib
 import unicodedata
 from pathlib import Path
@@ -23,10 +24,9 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app import netguard
+from app import adapters, netguard, robots
 from app.config import get_settings
 from app.db import Hardware as HardwareRow, Model as ModelRow, Page, Plan as PlanRow, Source
-from app.extract import read_page
 
 
 class CrawlError(RuntimeError):
@@ -64,10 +64,33 @@ async def fetch_fixture(url: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-async def fetch_crawl4ai(url: str) -> str:
+@asynccontextmanager
+async def browser():
+    """Open one browser for the whole run, or nothing if none is needed.
+
+    Starting a browser costs a few seconds, so opening one per page made a
+    five-source run take minutes. One browser, reused, makes it seconds.
+    """
+    if get_settings().crawler != "crawl4ai":
+        yield None
+        return
+
+    try:
+        from crawl4ai import AsyncWebCrawler, BrowserConfig
+    except ImportError as error:
+        raise CrawlError(
+            "crawl4ai is not installed. Either 'pip install -r "
+            "requirements-crawler.txt' or set LLMFIT_CRAWLER=fixture."
+        ) from error
+
+    async with AsyncWebCrawler(config=BrowserConfig(headless=True, verbose=False)) as opened:
+        yield opened
+
+
+async def fetch_crawl4ai(url: str, opened=None) -> str:
     """Fetch the page with a real browser and keep the Markdown it produces."""
     try:
-        from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+        from crawl4ai import CrawlerRunConfig
     except ImportError as error:
         raise CrawlError(
             "crawl4ai is not installed. Either 'pip install -r "
@@ -76,12 +99,15 @@ async def fetch_crawl4ai(url: str) -> str:
 
     settings = get_settings()
     netguard.check(url)
+    run = CrawlerRunConfig(page_timeout=settings.crawl_timeout_seconds * 1000)
     try:
-        async with AsyncWebCrawler(config=BrowserConfig(headless=True, verbose=False)) as crawler:
-            outcome = await crawler.arun(
-                url=url,
-                config=CrawlerRunConfig(page_timeout=settings.crawl_timeout_seconds * 1000),
-            )
+        if opened is not None:
+            outcome = await opened.arun(url=url, config=run)
+        else:
+            async with browser() as one_off:
+                outcome = await one_off.arun(url=url, config=run)
+    except CrawlError:
+        raise
     except Exception as error:
         raise CrawlError(f"could not fetch {url}: {error}") from error
 
@@ -95,10 +121,11 @@ async def fetch_crawl4ai(url: str) -> str:
     return str(getattr(outcome, "markdown", "") or "")
 
 
-async def fetch(url: str) -> str:
+async def fetch(url: str, opened=None) -> str:
     settings = get_settings()
     markdown = await (
-        fetch_crawl4ai(url) if settings.crawler == "crawl4ai" else fetch_fixture(url)
+        fetch_crawl4ai(url, opened) if settings.crawler == "crawl4ai"
+        else fetch_fixture(url)
     )
     encoded = markdown.encode("utf-8")
     if len(encoded) > settings.max_page_bytes:
@@ -163,15 +190,26 @@ async def crawl_all(session: Session) -> Report:
     """Visit every enabled source once. One failure does not stop the rest."""
     report = Report()
     sources = session.scalars(select(Source).where(Source.enabled.is_(True))).all()
+    if not sources:
+        return report
 
+    async with browser() as opened:
+        await _visit_each(session, sources, opened, report)
+    return report
+
+
+async def _visit_each(session: Session, sources, opened, report: "Report") -> None:
     for source in sources:
         entry: dict = {"url": source.url}
         try:
             # Shape only here: the fixture backend reads a local file, and the
             # crawl4ai backend runs the full check itself just before fetching.
             netguard.check_shape(source.url)
-            markdown = await fetch(source.url)
-        except (netguard.Blocked, CrawlError) as error:
+            if get_settings().crawler == "crawl4ai":
+                # Only ask about robots.txt when we are really going to visit.
+                robots.check(source.url)
+            markdown = await fetch(source.url, opened)
+        except (netguard.Blocked, robots.Disallowed, CrawlError) as error:
             entry["error"] = str(error)
             report.visited.append(entry)
             continue
@@ -180,7 +218,14 @@ async def crawl_all(session: Session) -> Report:
         previous = session.scalars(select(Page).where(Page.url == source.url)).first()
         changed = previous is None or previous.content_hash != digest
 
-        found = read_page(markdown, source.url)
+        try:
+            found = adapters.read(
+                source.adapter, markdown, source.url, dict(source.config or {})
+            )
+        except adapters.UnknownAdapter as error:
+            entry["error"] = str(error)
+            report.visited.append(entry)
+            continue
         _save_rows(session, found)
 
         if previous is None:
@@ -195,10 +240,14 @@ async def crawl_all(session: Session) -> Report:
             previous.rows_found = found.count
             previous.fetched_at = dt.datetime.now(dt.timezone.utc)
 
-        entry.update({"changed": changed, "rows_found": found.count})
+        entry.update({
+            "adapter": source.adapter,
+            "changed": changed,
+            "rows_found": found.count,
+        })
+        if found.notes:
+            entry["notes"] = found.notes
         report.visited.append(entry)
-
-    return report
 
 
 def run() -> dict:  # pragma: no cover - command line entry point

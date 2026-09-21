@@ -54,6 +54,26 @@ class Candidate:
         return [url for url in dict.fromkeys(urls) if url]
 
 
+def _power_for(part, policy: Policy) -> tuple[Decimal, Decimal, bool]:
+    """Active watts, idle watts, and whether those are measured.
+
+    Best case the catalog has a measured whole-machine figure. Otherwise a
+    card's board rating plus an allowance for the rest of the machine, which is
+    a guess and is reported as one. Failing both, a flat assumption.
+    """
+    if part.active_watts is not None and part.idle_watts is not None:
+        return part.active_watts, part.idle_watts, True
+
+    if part.gpu_board_watts is not None:
+        return (
+            part.gpu_board_watts + policy.rest_of_machine_active_watts,
+            policy.rest_of_machine_idle_watts,
+            False,
+        )
+
+    return policy.assumed_active_watts, policy.assumed_idle_watts, False
+
+
 def _yours(request: RecommendInput, policy: Policy) -> Machine | None:
     owned = request.existing_computer
     if owned is None:
@@ -82,15 +102,16 @@ def build(request: RecommendInput, catalog: Catalog, policy: Policy) -> list[Can
         for card in catalog.hardware:
             if card.role != "gpu" or card.vram_gb is None:
                 continue
+            active, idle, measured = _power_for(card, policy)
             machines.append((
                 Deployment.UPGRADE,
                 Machine(
                     label=f"{yours.label} plus {card.name}",
                     vram_gb=card.vram_gb,
                     ram_gb=yours.ram_gb,
-                    active_watts=card.active_watts or policy.assumed_active_watts,
-                    idle_watts=card.idle_watts or policy.assumed_idle_watts,
-                    power_measured=card.active_watts is not None,
+                    active_watts=active,
+                    idle_watts=idle,
+                    power_measured=measured,
                     setup_hours=card.setup_hours,
                 ),
                 [card],
@@ -100,15 +121,16 @@ def build(request: RecommendInput, catalog: Catalog, policy: Policy) -> list[Can
     for system in catalog.hardware:
         if system.role != "system":
             continue
+        active, idle, measured = _power_for(system, policy)
         machines.append((
             Deployment.NEW_MACHINE,
             Machine(
                 label=system.name,
                 vram_gb=system.vram_gb,
                 ram_gb=system.ram_gb,
-                active_watts=system.active_watts or policy.assumed_active_watts,
-                idle_watts=system.idle_watts or policy.assumed_idle_watts,
-                power_measured=system.active_watts is not None,
+                active_watts=active,
+                idle_watts=idle,
+                power_measured=measured,
                 setup_hours=system.setup_hours,
             ),
             [system],
