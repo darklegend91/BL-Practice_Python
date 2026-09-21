@@ -13,15 +13,30 @@ catalog that a crawler fills in.
 
 **No login, no accounts, no API keys.** One `POST` and you have your answer.
 
+## Two ways to use it
+
+Both do exactly the same work. They share one engine and one catalog, so they
+cannot give you different answers.
+
+```bash
+python -m app            # a menu: ask here, or start the web API
+python -m app ask -i     # answer questions in the terminal
+python -m app serve      # start the web API at http://localhost:8000/docs
+```
+
 ## Quick start
 
 ```bash
 make install
 createuser llmfit --createdb && createdb llmfit --owner llmfit
 export LLMFIT_DATABASE_URL="postgresql+psycopg://llmfit:llmfit@localhost:5432/llmfit"
-make db      # creates tables, registers example sources, crawls them
-make run     # http://localhost:8000/docs
+python -m app setup      # create the tables, register the example sources
+python -m app crawl      # fill the catalog from them
+python -m app ask -i     # ask your question in the terminal
 ```
+
+Prefer the web API? `python -m app serve` and open
+<http://localhost:8000/docs>. Not sure? `python -m app` gives you the menu.
 
 Those steps use the bundled example pages. For real data from Wikipedia and
 Ollama instead:
@@ -37,7 +52,7 @@ About forty real rows in half a minute. Read the caveats in
 prices in USD, and Ollama does not publish enough for any model to count as
 confirmed.
 
-Then ask it something:
+Then ask it something over HTTP:
 
 ```bash
 curl -X POST localhost:8000/recommend \
@@ -53,6 +68,24 @@ curl -X POST localhost:8000/recommend \
 
 Only `workloads` is required. `GET /options` lists every choice and the number
 each one means.
+
+## The whole command line
+
+| Command | What it does |
+| --- | --- |
+| `python -m app` | A menu: ask here, or start the web API |
+| `python -m app ask -i` | Answer the questions one at a time |
+| `python -m app ask --workloads coding --vram 16 --ram 32` | Straight through, for scripts |
+| `python -m app ask --json` | The raw result, for piping |
+| `python -m app options` | Every choice and what each one means |
+| `python -m app catalog` | What the answer would be based on |
+| `python -m app crawl` | Fetch every registered source now |
+| `python -m app sources --add URL` | Register a page to read |
+| `python -m app setup` | Create the tables and register sources |
+| `python -m app serve` | Start the web API instead |
+
+`pip install -e .` also gives you `llmfit` as a command, if you would rather
+type that than `python -m app`.
 
 ## The whole API
 

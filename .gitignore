@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 # Crawl4AI keeps a cache next to wherever it runs.
 .crawl4ai/
+
+# A separate project that happens to live in this folder. It has its own git
+# repository, so keep this one out of it entirely.
+fastapi-crm-project/

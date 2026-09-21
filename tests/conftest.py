@@ -191,3 +191,21 @@ def ask(**overrides) -> RecommendInput:
 @pytest.fixture
 def catalog() -> Catalog:
     return a_catalog()
+
+
+@pytest.fixture
+def cli_database(engine, monkeypatch):
+    """Point the CLI's own session maker at the test database."""
+    from app import db as db_module
+    from app.config import Settings
+
+    settings = Settings(
+        database_url=TEST_DATABASE_URL, crawler="fixture",
+        fixture_dir=str(FIXTURE_PAGES),
+    )
+    monkeypatch.setattr("app.config.get_settings", lambda: settings)
+    monkeypatch.setattr("app.crawler.get_settings", lambda: settings)
+    monkeypatch.setattr("app.netguard.get_settings", lambda: settings)
+    factory = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    monkeypatch.setattr(db_module, "get_sessionmaker", lambda: factory)
+    return engine

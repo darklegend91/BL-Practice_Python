@@ -54,6 +54,7 @@ class Home(Strict):
     how_the_answer_is_worked_out: list[str]
     what_it_will_not_do: list[str]
     known_limitations: list[str]
+    other_ways_to_use_it: dict
     where_to_look_next: dict
 
 
@@ -342,6 +343,13 @@ def home() -> Home:
             "exists so the app works end to end before you have real sources.",
             "Nothing is stored per user. There are no accounts and no saved history.",
         ],
+        other_ways_to_use_it={
+            "terminal": "python -m app ask --interactive",
+            "one_line": "python -m app ask --workloads coding --vram 16 --ram 32",
+            "menu": "python -m app",
+            "note": "The terminal and this API share the same engine and the same "
+                    "catalog, so they always give the same answer.",
+        },
         where_to_look_next={
             "full_guide": "docs/guide.md",
             "interactive_docs": "/docs",

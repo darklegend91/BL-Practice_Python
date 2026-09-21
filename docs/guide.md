@@ -69,11 +69,84 @@ Load the example sources and crawl them:
 Start it:
 
 ```bash
-.venv/bin/uvicorn app.main:app --reload
+.venv/bin/python -m app serve --reload
 ```
 
 Open <http://localhost:8000/docs> to click through it, or use the endpoints
 below.
+
+## Two ways to use it
+
+The terminal and the web API do the same work. They call the same engine over
+the same catalog, so they cannot disagree. Pick whichever suits the moment.
+
+Run it with no command and it asks:
+
+```
+$ python -m app
+
+LLM Fit Advisor 0.2.0
+
+How do you want to use it?
+
+  1  Answer some questions here and get a recommendation
+  2  Start the web API instead  (http://localhost:8000/docs)
+  3  Show what is in the catalog
+  4  Fetch the sources again
+  5  Show the questions and what each answer means
+  q  Quit
+```
+
+### In the terminal
+
+`python -m app ask -i` walks through the questions one at a time. Every
+question shows its choices numbered, and pressing Enter takes the default:
+
+```
+What do you want it for?  (several allowed, separated by commas)
+  1  Writing and reviewing code
+  2  Studying and explanations
+  3  Writing and editing text
+  4  Reading and summarising documents
+> 1
+```
+
+For a script, give the answers as flags instead and it runs straight through:
+
+```bash
+python -m app ask \
+  --workloads coding \
+  --months 24 \
+  --vram 16 --ram 32 \
+  --electricity 0.32 \
+  --region US --currency USD
+```
+
+You get a readable report: the best option with its costs, the ones that also
+work, anything missing a fact, what was ruled out and why, the break-even, and
+the three assumption cases. `--all` shows every ruled-out option rather than
+the first five. `--json` prints the raw result instead, which is the same shape
+`POST /recommend` returns.
+
+Every command:
+
+| Command | What it does |
+| --- | --- |
+| `python -m app` | The menu above |
+| `python -m app ask` | Get a recommendation |
+| `python -m app options` | Every choice and the number it means |
+| `python -m app catalog` | What the answer would be based on |
+| `python -m app crawl` | Fetch every registered source now |
+| `python -m app sources` | List, or `--add URL` to register one |
+| `python -m app setup` | Create the tables and register sources |
+| `python -m app serve` | Start the web API instead |
+
+Add `--help` to any of them. `pip install -e .` also gives you `llmfit` as a
+command if you prefer it to `python -m app`.
+
+### Over HTTP
+
+`python -m app serve` starts the API. Everything below describes that side.
 
 ## The endpoints
 
@@ -308,6 +381,8 @@ No test touches the internet. The crawler tests read saved pages from
 
 ```text
 app/
+  cli.py         the command line, and the menu
+  render.py      results as readable text for a terminal
   main.py        the endpoints
   schemas.py     every Pydantic model
   options.py     the choices, and what each one means
