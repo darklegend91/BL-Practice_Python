@@ -3,56 +3,103 @@
 Answers one question: should you run a language model on your own computer, or
 pay for a subscription?
 
-You pick from options and give a few numbers. It compares your current
-computer, your computer plus a new graphics card, a whole new machine, and the
-subscription plans it knows about, then tells you which is cheapest over the
-period you care about and why the others were ruled out.
+You pick from fixed options and give a few numbers. It compares the computer
+you already have, that computer plus a new graphics card, a whole new machine,
+and the subscription plans it knows about, then tells you which is cheapest
+over the period you care about and why the others were ruled out.
 
 It runs no model and calls no model API. The answer is arithmetic over a
-catalog that a crawler fills in.
-
-**No login, no accounts, no API keys.** One `POST` and you have your answer.
+catalog that a crawler fills in. There are no accounts, no logins and no API
+keys.
 
 ## Two ways to use it
 
-Both do exactly the same work. They share one engine and one catalog, so they
-cannot give you different answers.
+The terminal and the web API do the same work. They call the same engine over
+the same catalog, so they cannot give you different answers.
 
 ```bash
 python -m app            # a menu: ask here, or start the web API
-python -m app ask -i     # answer questions in the terminal
+python -m app ask -i     # answer the questions in the terminal
 python -m app serve      # start the web API at http://localhost:8000/docs
 ```
 
-## Quick start
+Run it with no command and it asks which you want:
+
+```
+LLM Fit Advisor 0.2.0
+
+How do you want to use it?
+
+  1  Answer some questions here and get a recommendation
+  2  Start the web API instead  (http://localhost:8000/docs)
+  3  Show what is in the catalog
+  4  Fetch the sources again
+  5  Show the questions and what each answer means
+  q  Quit
+```
+
+## Getting it running
+
+Needs Python 3.12 or newer and PostgreSQL.
 
 ```bash
-make install
-createuser llmfit --createdb && createdb llmfit --owner llmfit
+make install                                    # virtualenv and dependencies
+createuser llmfit --createdb
+createdb llmfit --owner llmfit
 export LLMFIT_DATABASE_URL="postgresql+psycopg://llmfit:llmfit@localhost:5432/llmfit"
-python -m app setup      # create the tables, register the example sources
-python -m app crawl      # fill the catalog from them
-python -m app ask -i     # ask your question in the terminal
+
+make setup      # create the five tables, register the example sources
+make crawl      # read those sources into the catalog
+make cli        # ask your question
 ```
 
-Prefer the web API? `python -m app serve` and open
-<http://localhost:8000/docs>. Not sure? `python -m app` gives you the menu.
+`make` is only a shortcut: every target is a single `python -m app` command,
+all of them in the table below.
 
-Those steps use the bundled example pages. For real data from Wikipedia and
-Ollama instead:
+### Using real data instead
+
+The steps above read bundled example pages describing invented products, so the
+app works before you have sources of your own. For real figures from Wikipedia
+and Ollama:
 
 ```bash
-pip install -r requirements-crawler.txt && python -m playwright install chromium
+pip install -r requirements-crawler.txt
+python -m playwright install chromium
 export LLMFIT_CRAWLER=crawl4ai
-python -m app.seed --real && python -m app.crawler
+make real       # register the real sources and fetch them
 ```
 
-About forty real rows in half a minute. Read the caveats in
-[`docs/guide.md`](docs/guide.md#real-sources) first: the prices are *launch*
-prices in USD, and Ollama does not publish enough for any model to count as
-confirmed.
+About forty real rows in half a minute. **Read the caveats** in
+[`docs/guide.md`](docs/guide.md#real-sources) first. The short version: prices
+are *launch* prices in US dollars, so ask with `--region US --currency USD`;
+and Ollama publishes neither layer counts nor licences nor what a model is good
+at, so every real model comes back as *uncertain* rather than confirmed.
 
-Then ask it something over HTTP:
+## The command line
+
+| Command | What it does |
+| --- | --- |
+| `python -m app` | The menu above |
+| `python -m app ask -i` | Answer the questions one at a time |
+| `python -m app ask --workloads coding --vram 16 --ram 32` | Straight through, for scripts |
+| `python -m app ask --json` | The raw result, for piping |
+| `python -m app ask --all` | Show every ruled-out option, not just the first five |
+| `python -m app options` | Every choice and the number it turns into |
+| `python -m app catalog` | What the answer would be based on |
+| `python -m app crawl` | Fetch every registered source now |
+| `python -m app sources --add URL` | Register a page to read |
+| `python -m app setup` | Create the tables and register sources |
+| `python -m app serve` | Start the web API instead |
+
+Add `--help` to any of them. `pip install -e .` also gives you `llmfit` as a
+command if you would rather type that.
+
+The `make` targets are `install`, `setup`, `crawl`, `real`, `cli`, `run`,
+`menu` and `test`.
+
+## The web API
+
+Start it with `python -m app serve`, then:
 
 ```bash
 curl -X POST localhost:8000/recommend \
@@ -66,30 +113,8 @@ curl -X POST localhost:8000/recommend \
   }'
 ```
 
-Only `workloads` is required. `GET /options` lists every choice and the number
-each one means.
-
-## The whole command line
-
-| Command | What it does |
-| --- | --- |
-| `python -m app` | A menu: ask here, or start the web API |
-| `python -m app ask -i` | Answer the questions one at a time |
-| `python -m app ask --workloads coding --vram 16 --ram 32` | Straight through, for scripts |
-| `python -m app ask --json` | The raw result, for piping |
-| `python -m app options` | Every choice and what each one means |
-| `python -m app catalog` | What the answer would be based on |
-| `python -m app crawl` | Fetch every registered source now |
-| `python -m app sources --add URL` | Register a page to read |
-| `python -m app setup` | Create the tables and register sources |
-| `python -m app serve` | Start the web API instead |
-
-`pip install -e .` also gives you `llmfit` as a command, if you would rather
-type that than `python -m app`.
-
-## The whole API
-
-Every `POST` has a `GET` beside it that tells you what to send it.
+Only `workloads` is required. Every `POST` has a `GET` beside it that tells you
+what to send.
 
 | Endpoint | What it does |
 | --- | --- |
@@ -105,23 +130,28 @@ Every `POST` has a `GET` beside it that tells you what to send it.
 | `GET /crawl` | What `POST /crawl` does |
 | `GET /health` | Up, and database reachable |
 
-Lost? `curl localhost:8000/` explains everything, including the setup steps.
+Lost? `curl localhost:8000/` explains the whole thing, setup steps included,
+and <http://localhost:8000/docs> is the same API you can click through.
 
 ## How it fits together
 
 ```
-sources  ->  POST /crawl  ->  pages  ->  extract  ->  hardware / models / plans
-                                                              |
-                                              POST /recommend -+-> your answer
+ sources  ->  crawl  ->  pages  ->  adapters  ->  hardware / models / plans
+                                                           |
+                                                           v
+                    python -m app ask   or   POST /recommend   ->  your answer
 ```
 
 Five tables in one PostgreSQL database. Pydantic validates everything going in
-and coming out. The decision itself is a single function that touches no
-database and no network, so the same question always gives the same answer.
+and coming out. One reader per kind of page lives in `app/adapters/`, and a
+source says which one understands it.
 
-[`docs/guide.md`](docs/guide.md) has the full walk-through: every endpoint,
-the page format the crawler reads, how the costing works, and how to point it
-at a site of your own.
+The decision itself is a single function that touches no database and no
+network, so the same question always gives the same answer.
+
+[`docs/guide.md`](docs/guide.md) is the full walk-through: both ways to run it,
+every endpoint, the page format the crawler reads, how the costing works, and
+how to point it at a site of your own.
 
 ## What it will not do
 
@@ -132,7 +162,9 @@ at a site of your own.
 - Tell you a model will be fast. It checks whether it fits, not how quick it is.
 
 Anything with a fact missing is reported as *uncertain* and listed apart from
-the real answers, so it can never win by default.
+the confirmed answers, so it can never win by default. When a page does not
+look the way a reader expects, it returns nothing rather than guessing, and
+says so in `GET /pages`.
 
 ## Tests
 
@@ -140,6 +172,12 @@ the real answers, so it can never win by default.
 make test
 ```
 
-The engine tests need only Python. The crawler and API tests want a PostgreSQL
-test database (`createdb llmfit_test --owner llmfit`) and skip without one.
-Nothing in the suite touches the internet.
+The engine, rendering and adapter tests need only Python. The crawler, CLI and
+API tests want a PostgreSQL test database and skip cleanly without one:
+
+```bash
+createdb llmfit_test --owner llmfit
+```
+
+Nothing in the suite touches the internet. The adapters are tested against real
+crawled pages saved under `tests/fixtures/real`.
