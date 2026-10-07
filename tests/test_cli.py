@@ -370,3 +370,82 @@ def test_a_caveat_on_only_some_options_stays_on_its_own_rows():
     answer = recommend(ask(), a_catalog())
     rare = _common_codes(answer.uncertain[:1])
     assert rare == []  # too few options to summarise
+
+
+# --------------------------------------------------------------------------- #
+# The answer must not contradict itself
+# --------------------------------------------------------------------------- #
+
+
+def test_the_assumption_cases_can_only_name_an_option_that_could_win():
+    """The cases once named an uncertain option while a confirmed one was best."""
+    catalog = a_catalog(
+        models=[a_model()],                       # confirmed
+        plans=[a_plan(slug="cheap", price="1.00", messages_per_day=None)],  # uncertain
+    )
+    answer = recommend(ask(), catalog)
+    eligible = {o.id for o in ([answer.best] if answer.best else []) + answer.runners_up}
+    if answer.best is not None:
+        for case in answer.cases:
+            assert case.winner in eligible, (
+                f"case {case.case} named {case.winner}, which cannot be the answer"
+            )
+
+
+def test_break_even_sentences_use_names_not_identifiers():
+    answer = recommend(ask(), a_catalog())
+    assert answer.break_even
+    for entry in answer.break_even:
+        assert "existing_computer:" not in entry.note
+        assert "upgrade:" not in entry.note
+
+
+# --------------------------------------------------------------------------- #
+# Currency
+# --------------------------------------------------------------------------- #
+
+
+def test_the_currency_flag_reaches_the_request():
+    args = build_parser().parse_args(["ask", "--currency", "INR"])
+    assert request_from_flags(args).currency == "INR"
+
+
+def test_rates_can_be_given_more_than_once():
+    args = build_parser().parse_args(
+        ["ask", "--currency", "INR", "--rate", "USD=88", "--rate", "EUR=95"]
+    )
+    assert args.rate == ["USD=88", "EUR=95"]
+
+
+def _fill(capsys) -> None:
+    """Register the example pages and read them in, so there is a catalog."""
+    assert main(["crawl", "--examples"]) == 0
+    capsys.readouterr()
+
+
+@needs_database
+def test_asking_in_rupees_prices_everything_in_rupees(cli_database, capsys):
+    import json
+
+    _fill(capsys)
+    assert main(["ask", "--currency", "INR", "--vram", "16", "--ram", "32", "--json"]) == 0
+    answer = json.loads(capsys.readouterr().out)
+    shown = ([answer["best"]] if answer["best"] else []) + answer["runners_up"]
+    priced = [o for o in shown if o["cost"]]
+    assert priced
+    assert all(o["cost"]["currency"] == "INR" for o in priced)
+
+
+@needs_database
+def test_the_rate_used_is_stated_in_the_answer(cli_database, capsys):
+    _fill(capsys)
+    assert main(["ask", "--currency", "INR", "--vram", "16", "--ram", "32"]) == 0
+    printed = capsys.readouterr().out
+    assert "Prices converted at" in printed
+    assert "import duty or local tax" in printed
+
+
+@needs_database
+def test_a_bad_rate_is_refused_before_anything_is_computed(cli_database, capsys):
+    assert main(["ask", "--currency", "INR", "--rate", "nonsense"]) == 1
+    assert "--rate nonsense" in capsys.readouterr().err

@@ -121,16 +121,23 @@ def recommend(
     policy: Policy = DEFAULT_POLICY,
     *,
     now: dt.datetime | None = None,
+    extra_assumptions: list[str] | None = None,
 ) -> Result:
-    """Work out what this person should do."""
+    """Work out what this person should do.
+
+    ``extra_assumptions`` is for things the caller had to assume before the
+    engine saw the catalog, such as the exchange rate a price was converted at.
+    They are listed with everything else this assumed.
+    """
     used = expand(request)
     created = now or dt.datetime.now(dt.timezone.utc)
+    extra_assumptions = extra_assumptions or []
 
     if catalog.is_empty:
         return Result(
             status=ResultStatus.NOTHING_FITS,
             inputs_used=used,
-            assumptions=_assumption_notes(request, used, policy),
+            assumptions=_assumption_notes(request, used, policy) + extra_assumptions,
             notes=[Finding(
                 code=reasons.CATALOG_EMPTY,
                 message=reasons.say(reasons.CATALOG_EMPTY),
@@ -151,11 +158,11 @@ def recommend(
     ordered = ranking.rank([option for _, option in solid], request.priority)
     ordered_shaky = ranking.rank([option for _, option in shaky], request.priority)
 
-    # Over everything that could actually be run, not only what is confirmed.
-    # Looking at the confirmed ones alone meant that when every option was
-    # missing a fact, all three cases reported "nothing", which told you less
-    # than the question deserved.
-    cases, changes = _three_cases(solid + shaky, request, used, policy)
+    # Over the same pool the recommendation came from. Confirmed options if
+    # there are any, otherwise the uncertain ones - which is how "best" is
+    # chosen too. Running it over both at once let a case name an option that
+    # was never eligible to win, so the answer appeared to contradict itself.
+    cases, changes = _three_cases(solid or shaky, request, used, policy)
 
     notes: list[Finding] = []
     if changes:
@@ -169,8 +176,11 @@ def recommend(
         best = ordered[0]
         for other in (ordered[1:] + ordered_shaky)[:10]:
             if best.cost and other.cost:
+                # Labels, not identifiers: these sentences are meant to be read.
                 comparisons.append(
-                    breakeven.compare(best.id, best.cost, other.id, other.cost, used.months)
+                    breakeven.compare(
+                        best.label, best.cost, other.label, other.cost, used.months
+                    )
                 )
         if comparisons and all(entry.cheaper_from_month is None for entry in comparisons):
             notes.append(Finding(
@@ -198,7 +208,7 @@ def recommend(
         break_even=comparisons,
         cases=cases,
         answer_changes_with_assumptions=changes,
-        assumptions=_assumption_notes(request, used, policy),
+        assumptions=_assumption_notes(request, used, policy) + extra_assumptions,
         notes=notes,
         created_at=created,
     )

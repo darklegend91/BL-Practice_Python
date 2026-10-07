@@ -9,3 +9,4 @@ __pycache__/
 # A separate project that happens to live in this folder. It has its own git
 # repository, so keep this one out of it entirely.
 fastapi-crm-project/
+.DS_Store

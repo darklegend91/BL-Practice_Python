@@ -222,6 +222,8 @@ class Plan(Strict):
     name: str
     price: Decimal | None = None
     currency: str | None = None
+    price_note: str | None = None
+    """Where the price came from, and whether it was converted."""
     billing_interval: BillingInterval = BillingInterval.MONTHLY
     min_seats: int = 1
     regions: list[str] = Field(default_factory=list)

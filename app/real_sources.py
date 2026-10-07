@@ -78,4 +78,28 @@ REAL_SOURCES: list[dict] = [
         "adapter": "ollama_models",
         "config": {"max_models": 8, "only_quantizations": ["q4_K_M", "q8_0"]},
     },
+    {
+        "url": "https://ollama.com/library/mistral/tags",
+        "label": "Mistral variants (Ollama)",
+        "adapter": "ollama_models",
+        "config": {"max_models": 8, "only_quantizations": ["q4_K_M", "q8_0"]},
+    },
+    {
+        "url": "https://ollama.com/library/phi3/tags",
+        "label": "Phi-3 variants (Ollama)",
+        "adapter": "ollama_models",
+        "config": {"max_models": 8, "only_quantizations": ["q4_K_M", "q8_0"]},
+    },
+    {
+        "url": "https://ollama.com/library/deepseek-r1/tags",
+        "label": "DeepSeek-R1 variants (Ollama)",
+        "adapter": "ollama_models",
+        "config": {"max_models": 10, "only_quantizations": ["q4_K_M", "q8_0"]},
+    },
+    {
+        "url": "https://ollama.com/library/codellama/tags",
+        "label": "Code Llama variants (Ollama)",
+        "adapter": "ollama_models",
+        "config": {"max_models": 8, "only_quantizations": ["q4_K_M", "q8_0"]},
+    },
 ]

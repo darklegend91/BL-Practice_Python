@@ -30,7 +30,6 @@ from sqlalchemy.orm import Session
 
 from app import catalog as catalog_loader, crawler, help as help_text
 from app.db import Page, Source, get_session
-from app.engine.recommend import recommend
 from app.help import EndpointHelp, FieldHelp, Home
 from app.options import all_options
 from app.schemas import Catalog, RecommendInput, Result, Strict
@@ -120,8 +119,7 @@ def make_recommendation(
     Nothing is stored and nothing is crawled while you wait. It reads the
     catalog as it is right now and works the answer out.
     """
-    available = catalog_loader.load(session, region=answers.region)
-    return recommend(answers, available)
+    return catalog_loader.answer_for(session, answers)
 
 
 class RecommendHelp(EndpointHelp):

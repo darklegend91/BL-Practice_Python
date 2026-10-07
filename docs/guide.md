@@ -325,6 +325,43 @@ comparison is between local options alone.
 Both sites' robots.txt were checked before being listed, and `app/robots.py`
 checks again on every run.
 
+## Asking in another currency
+
+The catalog holds prices in whatever the source quoted: US dollars from
+Wikipedia's launch prices, euros from the example pages. Ask in something else
+and they are converted.
+
+```bash
+python -m app ask --currency INR --vram 16 --ram 32
+```
+
+The app does not call an exchange-rate service. A rate is a fact somebody
+checked on a date, so the rates live in `app/rates.py` with that date and where
+they came from, and the answer repeats both:
+
+```
+- Prices converted at 1 USD = 88.00 INR, checked on 2026-09-01 (manually
+  entered, needs checking before you rely on it).
+- A converted price is only as good as that rate, and does not include import
+  duty or local tax.
+```
+
+**The shipped rates are a starting point and will be out of date.** Pass your
+own at the time you ask, as often as you need:
+
+```bash
+python -m app ask --currency INR --rate USD=88.20 --rate EUR=95.40
+```
+
+A price with no route to your currency is left out rather than guessed at, and
+the answer lists what it dropped. That is the same thing the app does with
+every other missing fact: a number in the wrong currency is worse than no
+number.
+
+Converting also stops the country a price came from being a filter. A card
+quoted in New York is usable in Mumbai once it is in rupees, so it is offered
+with a note saying where the price came from, rather than hidden.
+
 ## Adding a site of your own
 
 Write a reader in `app/adapters/`, add it to the table in that package's

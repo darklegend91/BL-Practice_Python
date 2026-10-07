@@ -84,6 +84,8 @@ at, so every real model comes back as *uncertain* rather than confirmed.
 | `python -m app ask --workloads coding --vram 16 --ram 32` | Straight through, for scripts |
 | `python -m app ask --json` | The raw result, for piping |
 | `python -m app ask --all` | Show every ruled-out option, not just the first five |
+| `python -m app ask --currency INR` | Prices converted, with the rate shown |
+| `python -m app ask --currency INR --rate USD=88.20` | Your own rate instead of the shipped one |
 | `python -m app options` | Every choice and the number it turns into |
 | `python -m app catalog` | What the answer would be based on |
 | `python -m app crawl` | Fetch every registered source now |
@@ -160,6 +162,8 @@ how to point it at a site of your own.
 - Spread a twelve-month commitment across a two-month comparison.
 - Assume a licence allows commercial use because nobody said otherwise.
 - Tell you a model will be fast. It checks whether it fits, not how quick it is.
+- Call an exchange-rate service. Rates are written down in `app/rates.py` with
+  the date they were checked, and every converted price says which rate it used.
 
 Anything with a fact missing is reported as *uncertain* and listed apart from
 the confirmed answers, so it can never win by default. When a page does not

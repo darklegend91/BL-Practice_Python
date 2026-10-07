@@ -177,11 +177,16 @@ class Report:
     def failures(self) -> int:
         return sum(1 for entry in self.visited if entry.get("error"))
 
+    @property
+    def skipped(self) -> int:
+        return sum(1 for entry in self.visited if entry.get("skipped"))
+
     def as_dict(self) -> dict:
         return {
             "sources_visited": len(self.visited),
             "catalog_rows_written": self.rows,
             "failures": self.failures,
+            "skipped": self.skipped,
             "details": self.visited,
         }
 
@@ -199,8 +204,19 @@ async def crawl_all(session: Session) -> Report:
 
 
 async def _visit_each(session: Session, sources, opened, report: "Report") -> None:
+    live = get_settings().crawler == "crawl4ai"
+
     for source in sources:
         entry: dict = {"url": source.url}
+
+        # .invalid is reserved by RFC 2606 and can never resolve, so these are
+        # the bundled example pages. Reporting them as failures every time you
+        # crawl for real would be noise about something working as intended.
+        if live and (urlsplit(source.url).hostname or "").endswith(".invalid"):
+            entry["skipped"] = "an example page, only readable with LLMFIT_CRAWLER=fixture"
+            report.visited.append(entry)
+            continue
+
         try:
             # Shape only here: the fixture backend reads a local file, and the
             # crawl4ai backend runs the full check itself just before fetching.

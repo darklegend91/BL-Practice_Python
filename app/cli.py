@@ -202,14 +202,20 @@ def request_from_flags(args) -> RecommendInput:
 
 def do_ask(args) -> int:
     from app.db import session_scope
-    from app.engine.recommend import recommend
+    from app.rates import Rates, parse_override
 
     request = ask_interactively() if args.interactive else request_from_flags(args)
 
-    with session_scope() as session:
-        available = catalog_loader.load(session, region=request.region)
+    rates = Rates()
+    for override in args.rate or []:
+        try:
+            rates.add(parse_override(override, request.currency))
+        except ValueError as error:
+            print(f"--rate {override}: {error}", file=sys.stderr)
+            return 1
 
-    answer = recommend(request, available)
+    with session_scope() as session:
+        answer = catalog_loader.answer_for(session, request, rates=rates)
 
     if args.json:
         print(json.dumps(answer.model_dump(mode="json"), indent=2))
@@ -425,7 +431,10 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument("--people-at-once", type=int, default=1)
     ask.add_argument("--months", type=int, default=24)
     ask.add_argument("--region", default="DE")
-    ask.add_argument("--currency", default="EUR")
+    ask.add_argument("--currency", default="EUR",
+                     help="three-letter code, for example INR")
+    ask.add_argument("--rate", action="append", metavar="USD=88.20",
+                     help="an exchange rate into your currency; repeatable")
     ask.add_argument("--computer-name", default="my computer")
     ask.add_argument("--vram", type=_decimal, help="graphics memory you already have, GB")
     ask.add_argument("--ram", type=_decimal, help="system memory you already have, GB")

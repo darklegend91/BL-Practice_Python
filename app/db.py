@@ -140,6 +140,7 @@ class Plan(Base):
     name: Mapped[str] = mapped_column(String(200))
     price: Mapped[float | None] = mapped_column(MONEY, nullable=True)
     currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    price_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     billing_interval: Mapped[str] = mapped_column(String(10), server_default=text("'monthly'"))
     min_seats: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     regions: Mapped[list] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))

@@ -268,13 +268,19 @@ def catalog(stored: Catalog) -> str:
 
 
 def crawl_report(report: dict) -> str:
-    out = [
+    headline = (
         f"Visited {report['sources_visited']} source(s), "
         f"wrote {report['catalog_rows_written']} row(s), "
-        f"{report['failures']} failure(s).",
-        "",
-    ]
+        f"{report['failures']} failure(s)"
+    )
+    if report.get("skipped"):
+        headline += f", {report['skipped']} skipped"
+    out = [headline + ".", ""]
     for entry in report["details"]:
+        if "skipped" in entry:
+            out.append(f"  skipped {entry['url']}")
+            out.append(f"          {entry['skipped']}")
+            continue
         if "error" in entry:
             out.append(f"  FAILED  {entry['url']}")
             out.append(f"          {entry['error']}")
